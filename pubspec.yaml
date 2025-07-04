@@ -1,0 +1,68 @@
+name: revrider
+description: A Flutter app for BLE throttle-to-engine-sound simulation.
+publish_to: 'none' # do not publish
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.5.4 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+# pubspec.yaml
+
+  permission_handler: ^10.2.0
+
+  # BLE
+  flutter_reactive_ble: ^5.0.2
+
+  # Audio engine
+  just_audio: ^0.9.34
+
+  # State management
+  provider: ^6.0.5
+
+  # Gauges
+  syncfusion_flutter_gauges: ^20.2.43
+
+  # QR code activation
+  #mobile_scanner: ^2.0.0
+
+  # Firebase (for auth, analytics)
+  firebase_core: ^2.15.1
+  firebase_auth: ^4.4.0
+
+  shared_preferences: ^2.0.15
+
+  # In-app purchases (RevenueCat)
+  purchases_flutter: ^4.0.2
+
+  # Cupertino icons
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Custom font for futuristic theme
+  fonts:
+    - family: RobotoMono
+      fonts:
+        - asset: assets/fonts/RobotoMono-Regular.ttf
+
+  # Sound assets (uncomment and add more profiles as you create them)
+  assets:
+    - assets/sounds/default/idle.mp3
+    - assets/sounds/default/mid.mp3
+    - assets/sounds/default/high.mp3
+    - assets/sounds/default/cutoff.mp3
+    # - assets/sounds/sport/idle.mp3
+    # - assets/sounds/sport/mid.mp3
+    # - assets/sounds/sport/high.mp3
+    # - assets/sounds/sport/cutoff.mp3
+
