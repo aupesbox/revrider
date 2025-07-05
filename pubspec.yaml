@@ -12,7 +12,7 @@ dependencies:
     sdk: flutter
 # pubspec.yaml
 
-  permission_handler: ^10.2.0
+  permission_handler: ^12.0.1
 
   # BLE
   flutter_reactive_ble: ^5.0.2
@@ -29,6 +29,8 @@ dependencies:
   # QR code activation
   #mobile_scanner: ^2.0.0
 
+
+
   # Firebase (for auth, analytics)
   firebase_core: ^2.15.1
   firebase_auth: ^4.4.0
@@ -36,10 +38,11 @@ dependencies:
   shared_preferences: ^2.0.15
 
   # In-app purchases (RevenueCat)
-  purchases_flutter: ^4.0.2
+  purchases_flutter: ^8.10.5
 
   # Cupertino icons
   cupertino_icons: ^1.0.8
+  in_app_purchase: ^0.4.0+2
 
 dev_dependencies:
   flutter_test:

@@ -1,12 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+// lib/ui/exhaust_studio.dart
 
-import '../providers/activation_provider.dart';
+import 'package:flutter/material.dart';
 import '../services/audio_manager.dart';
 import 'app_scaffold.dart';
 
 class ExhaustStudio extends StatefulWidget {
-  const ExhaustStudio({super.key});
+  const ExhaustStudio({Key? key}) : super(key: key);
 
   @override
   _ExhaustStudioState createState() => _ExhaustStudioState();
@@ -14,49 +13,57 @@ class ExhaustStudio extends StatefulWidget {
 
 class _ExhaustStudioState extends State<ExhaustStudio> {
   final AudioManager audio = AudioManager();
-  final List<String> allProfiles = ['default', 'sport', 'cruiser'];
 
+  final List<String> profiles = ['default', 'sport', 'cruiser'];
   String selected = 'default';
+
   double crossfade = 1.0;
   double pitchSens = 1.0;
-  double volume = 1.0;
+  double volume    = 1.0;
+
+  // New: preview throttle [0-100]
+  double previewThrottle = 0.0;
 
   @override
   void initState() {
     super.initState();
     audio.init().then((_) {
       audio.setMasterVolume(volume);
+      audio.setCrossfadeRate(crossfade);
+      audio.setPitchSensitivity(pitchSens);
+      audio.updateThrottle(previewThrottle);
       audio.play();
     });
   }
 
   @override
-  Widget build(BuildContext context) {
-    final isPremium = context.watch<ActivationProvider>().isPremium;
-    // Only default for non-premium users
-    final profiles = isPremium ? allProfiles : ['default'];
-    // ensure selected is valid
-    if (!profiles.contains(selected)) {
-      selected = profiles.first;
-    }
+  void dispose() {
+    audio.dispose();
+    super.dispose();
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return AppScaffold(
       title: 'Exhaust Studio',
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Profile selector
+            // Profile Selector
             DropdownButton<String>(
               value: selected,
               items: profiles
-                  .map((p) => DropdownMenuItem(value: p, child: Text(p.toUpperCase())))
+                  .map((p) => DropdownMenuItem(
+                value: p,
+                child: Text(p.toUpperCase()),
+              ))
                   .toList(),
               onChanged: (v) async {
-                selected = v!;
+                if (v == null) return;
+                setState(() => selected = v);
                 await audio.switchProfile(selected);
-                setState(() {});
               },
             ),
             const SizedBox(height: 24),
@@ -65,9 +72,9 @@ class _ExhaustStudioState extends State<ExhaustStudio> {
             Text('Crossfade Rate: ${crossfade.toStringAsFixed(2)}'),
             Slider(
               value: crossfade,
-              min: 0.5,
+              min: 0.1,
               max: 2.0,
-              divisions: 15,
+              divisions: 19,
               label: crossfade.toStringAsFixed(2),
               onChanged: (v) {
                 setState(() => crossfade = v);
@@ -80,9 +87,9 @@ class _ExhaustStudioState extends State<ExhaustStudio> {
             Text('Pitch Sensitivity: ${pitchSens.toStringAsFixed(2)}'),
             Slider(
               value: pitchSens,
-              min: 0.5,
+              min: 0.1,
               max: 3.0,
-              divisions: 25,
+              divisions: 29,
               label: pitchSens.toStringAsFixed(2),
               onChanged: (v) {
                 setState(() => pitchSens = v);
@@ -106,12 +113,29 @@ class _ExhaustStudioState extends State<ExhaustStudio> {
             ),
             const SizedBox(height: 24),
 
+            // Throttle Preview Slider
+            Text('Preview Throttle: ${previewThrottle.toInt()}%'),
+            Slider(
+              value: previewThrottle,
+              min: 0,
+              max: 100,
+              divisions: 100,
+              label: previewThrottle.toInt().toString(),
+              onChanged: (v) {
+                setState(() => previewThrottle = v);
+                audio.updateThrottle(v);
+              },
+            ),
+            const SizedBox(height: 24),
+
             // Preview Button
             ElevatedButton.icon(
               icon: const Icon(Icons.play_arrow),
               label: const Text('Preview'),
               onPressed: () {
+                // Restart loops and reapply throttle
                 audio.play();
+                audio.updateThrottle(previewThrottle);
               },
             ),
           ],
@@ -120,3 +144,127 @@ class _ExhaustStudioState extends State<ExhaustStudio> {
     );
   }
 }
+
+
+// import 'package:flutter/material.dart';
+// import 'package:provider/provider.dart';
+//
+// import '../providers/activation_provider.dart';
+// import '../services/audio_manager.dart';
+// import 'app_scaffold.dart';
+//
+// class ExhaustStudio extends StatefulWidget {
+//   const ExhaustStudio({super.key});
+//
+//   @override
+//   _ExhaustStudioState createState() => _ExhaustStudioState();
+// }
+//
+// class _ExhaustStudioState extends State<ExhaustStudio> {
+//   final AudioManager audio = AudioManager();
+//   final List<String> allProfiles = ['default', 'sport', 'cruiser'];
+//
+//   String selected = 'default';
+//   double crossfade = 1.0;
+//   double pitchSens = 1.0;
+//   double volume = 1.0;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     audio.init().then((_) {
+//       audio.setMasterVolume(volume);
+//       audio.play();
+//     });
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final isPremium = context.watch<ActivationProvider>().isPremium;
+//     // Only default for non-premium users
+//     final profiles = isPremium ? allProfiles : ['default'];
+//     // ensure selected is valid
+//     if (!profiles.contains(selected)) {
+//       selected = profiles.first;
+//     }
+//
+//     return AppScaffold(
+//       title: 'Exhaust Studio',
+//       child: Padding(
+//         padding: const EdgeInsets.all(16),
+//         child: Column(
+//           crossAxisAlignment: CrossAxisAlignment.stretch,
+//           children: [
+//             // Profile selector
+//             DropdownButton<String>(
+//               value: selected,
+//               items: profiles
+//                   .map((p) => DropdownMenuItem(value: p, child: Text(p.toUpperCase())))
+//                   .toList(),
+//               onChanged: (v) async {
+//                 selected = v!;
+//                 await audio.switchProfile(selected);
+//                 setState(() {});
+//               },
+//             ),
+//             const SizedBox(height: 24),
+//
+//             // Crossfade Rate
+//             Text('Crossfade Rate: ${crossfade.toStringAsFixed(2)}'),
+//             Slider(
+//               value: crossfade,
+//               min: 0.5,
+//               max: 2.0,
+//               divisions: 15,
+//               label: crossfade.toStringAsFixed(2),
+//               onChanged: (v) {
+//                 setState(() => crossfade = v);
+//                 audio.setCrossfadeRate(v);
+//               },
+//             ),
+//             const SizedBox(height: 16),
+//
+//             // Pitch Sensitivity
+//             Text('Pitch Sensitivity: ${pitchSens.toStringAsFixed(2)}'),
+//             Slider(
+//               value: pitchSens,
+//               min: 0.5,
+//               max: 3.0,
+//               divisions: 25,
+//               label: pitchSens.toStringAsFixed(2),
+//               onChanged: (v) {
+//                 setState(() => pitchSens = v);
+//                 audio.setPitchSensitivity(v);
+//               },
+//             ),
+//             const SizedBox(height: 16),
+//
+//             // Master Volume
+//             Text('Master Volume: ${(volume * 100).toInt()}%'),
+//             Slider(
+//               value: volume,
+//               min: 0.0,
+//               max: 1.0,
+//               divisions: 100,
+//               label: '${(volume * 100).toInt()}%',
+//               onChanged: (v) {
+//                 setState(() => volume = v);
+//                 audio.setMasterVolume(v);
+//               },
+//             ),
+//             const SizedBox(height: 24),
+//
+//             // Preview Button
+//             ElevatedButton.icon(
+//               icon: const Icon(Icons.play_arrow),
+//               label: const Text('Preview'),
+//               onPressed: () {
+//                 audio.play();
+//               },
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }

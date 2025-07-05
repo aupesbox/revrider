@@ -2,8 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
-import '../config.dart';
 import '../providers/app_state.dart';
 import '../services/ble_manager.dart';
 import 'app_scaffold.dart';
@@ -12,24 +10,54 @@ import 'linear_throttle_gauge.dart';
 import 'range_throttle_gauge.dart';
 import 'twin_throttle_gauge.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({Key? key}) : super(key: key);
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final state     = context.watch<AppState>();
+    final status    = state.connState;
     final connLabel = {
       BleConnectionStatus.disconnected: 'Disconnected',
       BleConnectionStatus.scanning:     'Scanning…',
-      BleConnectionStatus.discovered:   'Discovered',
+      BleConnectionStatus.discovered:   'Found!',
       BleConnectionStatus.connecting:   'Connecting…',
       BleConnectionStatus.connected:    'Connected',
-    }[state.connState]!;
+    }[status]!;
+
+    // Button is disabled while scanning/connecting or already connected
+    final canConnect = status == BleConnectionStatus.disconnected;
 
     return AppScaffold(
       title: 'Home',
       child: Column(
         children: [
+          // 0) Connection Status Indicator
+          if (status == BleConnectionStatus.scanning ||
+              status == BleConnectionStatus.connecting) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: LinearProgressIndicator(),
+            ),
+          ],
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              connLabel,
+              style: TextStyle(
+                color: status == BleConnectionStatus.connected
+                    ? Colors.green
+                    : Colors.orange,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+
           // 1) Throttle Gauges
           Expanded(
             child: PageView(
@@ -42,42 +70,54 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
 
-          // 2) Demo slider (only in demoMode)
-          if (demoMode)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              child: Column(
-                children: [
-                  Text(
-                    'Demo Throttle : ${state.throttle}%',
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                  Slider(
-                    min: 0,
-                    max: 100,
-                    divisions: 100,
-                    value: state.throttle.toDouble(),
-                    onChanged: (v) => context.read<AppState>().setThrottle(v.toInt()),
-                  ),
-                ],
-              ),
+          // 2) Always-on Throttle Slider
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            child: Column(
+              children: [
+                Text(
+                  'Throttle : ${state.throttle}%',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                Slider(
+                  min: 0,
+                  max: 100,
+                  divisions: 100,
+                  value: state.throttle.toDouble(),
+                  onChanged: (v) => context.read<AppState>().setThrottle(v.toInt()),
+                ),
+              ],
             ),
+          ),
 
-          // 3) Connect Button (only when not demoMode and not yet connected)
-          if (!demoMode &&
-              (state.connState == BleConnectionStatus.disconnected ||
-                  state.connState == BleConnectionStatus.scanning ||
-                  state.connState == BleConnectionStatus.discovered))
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.bluetooth_searching),
-                label: const Text('Connect Sensor'),
-                onPressed: () => context.read<AppState>().connectDevice(),
-              ),
+          // 3) Test-only Premium Toggle
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SwitchListTile(
+              title: const Text('Test Premium Mode'),
+              subtitle: const Text('Enable BLE & Premium UI'),
+              value: state.testPremium,
+              onChanged: (val) {
+                state.testPremium = val;
+                setState(() {});
+              },
+              secondary: const Icon(Icons.upgrade),
             ),
+          ),
 
-          // 4) Dashboard Info: Battery & Connection Status
+          // 4) Connect Sensor button
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.bluetooth_searching),
+              label: const Text('Connect Sensor'),
+              onPressed: canConnect
+                  ? () => context.read<AppState>().connectDevice()
+                  : null,
+            ),
+          ),
+
+          // 5) Dashboard Info: Battery & Connection Status
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Row(
