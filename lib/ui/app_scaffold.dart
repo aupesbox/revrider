@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:revrider/ui/upgrade_screen.dart';
 
 import '../providers/activation_provider.dart';
 import 'home_screen.dart';
@@ -53,6 +54,17 @@ class AppScaffold extends StatelessWidget {
                 );
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.upgrade),
+              title: const Text('Upgrade'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+                );
+              },
+            ),
+
             if (isPremium)
               ListTile(
                 leading: const Icon(Icons.music_note),

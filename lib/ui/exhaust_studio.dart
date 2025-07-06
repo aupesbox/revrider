@@ -5,7 +5,7 @@ import '../services/audio_manager.dart';
 import 'app_scaffold.dart';
 
 class ExhaustStudio extends StatefulWidget {
-  const ExhaustStudio({Key? key}) : super(key: key);
+  const ExhaustStudio({super.key});
 
   @override
   _ExhaustStudioState createState() => _ExhaustStudioState();

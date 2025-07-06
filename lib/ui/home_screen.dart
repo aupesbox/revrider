@@ -11,7 +11,7 @@ import 'range_throttle_gauge.dart';
 import 'twin_throttle_gauge.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -40,8 +40,8 @@ class _HomeScreenState extends State<HomeScreen> {
           // 0) Connection Status Indicator
           if (status == BleConnectionStatus.scanning ||
               status == BleConnectionStatus.connecting) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
               child: LinearProgressIndicator(),
             ),
           ],
