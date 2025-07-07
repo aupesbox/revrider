@@ -64,6 +64,7 @@ flutter:
     - assets/sounds/default/mid.mp3
     - assets/sounds/default/high.mp3
     - assets/sounds/default/cutoff.mp3
+    - assets/music/demo_song.mp3
     # - assets/sounds/sport/idle.mp3
     # - assets/sounds/sport/mid.mp3
     # - assets/sounds/sport/high.mp3

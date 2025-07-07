@@ -1,8 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
-import '../providers/activation_provider.dart';
+import '../providers/purchase_provider.dart';
 import '../services/activation_service.dart';
 import 'app_scaffold.dart';
 
@@ -63,7 +62,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final isActivated = _activation != null;
-    final isPremium   = context.watch<ActivationProvider>().isPremium;
+    final isPremium   = context.watch<PurchaseProvider>().isPremium;
 
     return AppScaffold(
       title: 'Profile',

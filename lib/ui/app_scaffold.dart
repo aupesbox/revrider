@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:revrider/ui/upgrade_screen.dart';
-
-import '../providers/activation_provider.dart';
+import '../providers/purchase_provider.dart';
 import 'home_screen.dart';
 import 'exhaust_studio.dart';
 import 'music_screen.dart';
@@ -22,7 +21,7 @@ class AppScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Only show premium screens when activated as premium
-    final isPremium = context.watch<ActivationProvider>().isPremium;
+    final isPremium = context.watch<PurchaseProvider>().isPremium;
 
     return Scaffold(
       appBar: AppBar(title: Text(title)),

@@ -3,31 +3,37 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:revrider/utils/themes.dart';
 
-import 'providers/app_state.dart';
+import 'providers/theme_provider.dart';
 import 'providers/purchase_provider.dart';
+import 'providers/app_state.dart';
 import 'services/ble_manager.dart';
 import 'ui/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize RevenueCat
+  // 1️⃣ Init RevenueCat
   await Purchases.setDebugLogsEnabled(true);
   await Purchases.configure(
     PurchasesConfiguration("public_sdk_key_here"),
   );
 
+  // 2️⃣ Init ThemeProvider
+  final themeProvider = ThemeProvider();
+  await themeProvider.load(); // load saved preference
+
   runApp(
     MultiProvider(
       providers: [
-        // 1️⃣ Provide a single BleManager instance
+        // Theme must come first so every screen can read it
+        ChangeNotifierProvider<ThemeProvider>.value(
+          value: themeProvider,
+        ),
+
         Provider(create: (_) => BleManager()),
-
-        // 2️⃣ Provide your purchase logic
         ChangeNotifierProvider(create: (_) => PurchaseProvider()),
-
-        // 3️⃣ Provide AppState, injecting the BleManager
         ChangeNotifierProvider(
           create: (ctx) => AppState(ctx.read<BleManager>()),
         ),
@@ -42,11 +48,14 @@ class RevRiderApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = context.watch<ThemeProvider>().mode;
+
     return MaterialApp(
       title: 'RevRider',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.light(),
-      darkTheme: ThemeData.dark(),
+      theme: AppThemes.lightTheme,
+      darkTheme: AppThemes.darkTheme,
+      themeMode: themeMode,
       home: const HomeScreen(),
     );
   }
