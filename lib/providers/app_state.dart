@@ -9,16 +9,16 @@ import '../config.dart';
 import '../services/ble_manager.dart';
 import '../services/audio_manager.dart';
 
-/// Manages throttle, battery, BLE, test-premium toggle, and audio.
 class AppState extends ChangeNotifier {
   AppState(this._ble) {
     _init();
   }
 
   final BleManager _ble;
-  final AudioManager _audio = AudioManager();
 
-  // —— NEW: developer toggle for Premium features
+  /// Single, shared audio engine
+  final AudioManager audio = AudioManager();
+
   bool _testPremium = false;
   bool get testPremium => _testPremium;
   set testPremium(bool v) {
@@ -26,24 +26,22 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // —— EXPOSED STATE
   int throttle = 0;
-  int battery  = 100; // stub for now
+  int battery  = 100;  // stub for now
   BleConnectionStatus connState = BleConnectionStatus.disconnected;
 
-  /// Called from HomeScreen’s “Connect Sensor” button
-  Future<void> connectDevice() async {
-    if (!demoMode) {
-      try {
-        await _ble.startScan();
-      } catch (e) {
-        debugPrint('connectDevice error: $e');
-      }
-    }
+  /// Currently playing music track (filename)
+  String? currentTrack;
+
+  /// Call this whenever you load or start a new track
+  void setCurrentTrack(String? track) {
+    currentTrack = track;
+    notifyListeners();
   }
 
-  /// Whether to use BLE (demoMode=false) or the on-screen slider
-  Future<void> _ensurePermissions() async {
+  /// Request runtime permissions then start scanning
+  Future<void> connectDevice() async {
+    if (demoMode) return;
     if (Platform.isAndroid) {
       await [
         Permission.bluetoothScan,
@@ -51,57 +49,50 @@ class AppState extends ChangeNotifier {
         Permission.locationWhenInUse,
       ].request();
     }
+    await _ble.startScan();
   }
 
   Future<void> _init() async {
-    // 1️⃣ Audio always on
+    // 1️⃣ Initialize & start audio once
     try {
-      await _audio.init();
-      await _audio.play();
+      await audio.init();
+      await audio.play();
     } catch (e, st) {
       debugPrint('Audio init/play failed: $e\n$st');
     }
 
-    // 2️⃣ BLE only if not in demoMode
+    // 2️⃣ BLE: only if not in demo
     if (!demoMode) {
-      try {
-        await _ensurePermissions();
+      _ble.connectionStateStream.listen((status) {
+        connState = status;
+        notifyListeners();
+        if (status == BleConnectionStatus.discovered) {
+          _ble.connect().catchError((e) {
+            debugPrint('BLE connect error: $e');
+          });
+        }
+      }, onError: (e) {
+        debugPrint('BLE connectionStateStream error: $e');
+      });
 
-        _ble.connectionStateStream.listen((status) {
-          connState = status;
-          notifyListeners();
-          if (status == BleConnectionStatus.discovered) {
-            _ble.connect().catchError((e) {
-              debugPrint('BLE connect error: $e');
-            });
-          }
-        }, onError: (e) {
-          debugPrint('BLE connectionStateStream error: $e');
-        });
+      _ble.throttleStream.listen((value) {
+        setThrottle(value);
+      }, onError: (e) {
+        debugPrint('BLE throttleStream error: $e');
+      });
 
-        _ble.throttleStream.listen((value) {
-          setThrottle(value);
-        }, onError: (e) {
-          debugPrint('BLE throttleStream error: $e');
-        });
-
-        await _ble.startScan().catchError((e) {
-          debugPrint('BLE startScan error: $e');
-        });
-      } catch (e, st) {
-        debugPrint('BLE init failed: $e\n$st');
-      }
+      await _ble.startScan().catchError((e) {
+        debugPrint('BLE startScan error: $e');
+      });
     }
   }
 
-  /// Drive audio + notify
   void setThrottle(int value) {
     throttle = value.clamp(0, 100);
-    _audio.updateThrottle(throttle.toDouble());
+    audio.updateThrottle(throttle.toDouble());
     notifyListeners();
   }
 
-  /// Calibration (unchanged)
   Future<bool> calibrateThrottle(BuildContext context) async {
     try {
       await _ble.calibrateZero();
@@ -115,7 +106,7 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     if (!demoMode) _ble.dispose();
-    _audio.dispose();
+    audio.dispose();
     super.dispose();
   }
 }

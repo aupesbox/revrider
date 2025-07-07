@@ -3,51 +3,36 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../services/audio_manager.dart';
-import '../providers/purchase_provider.dart';
+import '../providers/app_state.dart';
 import 'app_scaffold.dart';
 
 class MusicScreen extends StatefulWidget {
-  const MusicScreen({Key? key}) : super(key: key);
+  const MusicScreen({super.key});
   @override
   _MusicScreenState createState() => _MusicScreenState();
 }
 
 class _MusicScreenState extends State<MusicScreen> {
-  final AudioManager audio = AudioManager();
-
-  // demo track list
-  final List<String> tracks = ['demo_song.mp3'];
+  final tracks = ['demo_song.mp3'];
   String selectedTrack = 'demo_song.mp3';
-
-  // 0.0 = all engine, 1.0 = all music
   double musicVol = 0.5;
 
-  @override
-  void initState() {
-    super.initState();
-    // initialize engine loops
-    audio.init().then((_) {
-      audio.play();
-    });
-  }
+  Future<void> _loadAndPlay(String track, AppState appState) async {
+    // 1) update AppState so HomeScreen shows the name
+    appState.setCurrentTrack(track);
 
-  @override
-  void dispose() {
-    audio.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadMusic() async {
-    // ensure music asset is loaded & then play
-    await audio.loadMusicAsset('assets/music/$selectedTrack');
+    // 2) load & play via AudioManager
+    final audio = appState.audio;
+    await audio.loadMusicAsset('assets/music/$track');
     audio.playMusic();
     audio.setMusicMix(musicVol);
   }
 
   @override
   Widget build(BuildContext context) {
-    final isPremium = context.watch<PurchaseProvider>().isPremium;
+    final appState = context.watch<AppState>();
+    final isPremium = appState.testPremium;
+    final nowTrack = appState.currentTrack ?? 'None';
 
     return AppScaffold(
       title: 'Music Mode',
@@ -57,6 +42,13 @@ class _MusicScreenState extends State<MusicScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Now Playing header
+            Text(
+              'Now Playing:\n$nowTrack',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 24),
+
             // Track selector
             DropdownButton<String>(
               value: selectedTrack,
@@ -69,12 +61,12 @@ class _MusicScreenState extends State<MusicScreen> {
               onChanged: (t) {
                 if (t == null) return;
                 setState(() => selectedTrack = t);
-                _loadMusic();
+                _loadAndPlay(t, appState);
               },
             ),
             const SizedBox(height: 24),
 
-            // Music vs Engine mix
+            // Music / Engine mix slider
             Text('Music / Engine Mix: ${(musicVol * 100).toInt()}%'),
             Slider(
               value: musicVol,
@@ -84,23 +76,24 @@ class _MusicScreenState extends State<MusicScreen> {
               label: '${(musicVol * 100).toInt()}%',
               onChanged: (v) {
                 setState(() => musicVol = v);
-                audio.setMusicMix(v);
+                appState.audio.setMusicMix(v);
               },
             ),
-
             const SizedBox(height: 24),
+
+            // Play / Pause buttons
             Row(
               children: [
                 ElevatedButton.icon(
                   icon: const Icon(Icons.play_arrow),
                   label: const Text('Play Music'),
-                  onPressed: _loadMusic,
+                  onPressed: () => _loadAndPlay(selectedTrack, appState),
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.pause),
                   label: const Text('Pause Music'),
-                  onPressed: () => audio.pauseMusic(),
+                  onPressed: () => appState.audio.pauseMusic(),
                 ),
               ],
             ),

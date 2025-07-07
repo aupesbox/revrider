@@ -53,7 +53,7 @@ class SettingsScreen extends StatelessWidget {
                   onPressed: () => context.read<AppState>()
                       .calibrateThrottle(context),
                 );
-              };
+              }
             },
           ),
         ],
