@@ -1,52 +1,128 @@
 #include <BLEDevice.h>
-#include <BLEScan.h>
-#include <BLEAdvertisedDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
 #include <TFT_eSPI.h>
 #include <SPI.h>
 
-const int scanTime = 5;  // seconds per scan
+// --- UUID Definitions (must match your Flutter app) ---
+#define SERVICE_UUID        "12345678-1234-5678-1234-56789abcdef0"
+#define CHAR_THROTTLE_UUID  "12345678-1234-5678-1234-56789abcdef1"
+#define CHAR_CALIBRATE_UUID "12345678-1234-5678-1234-56789abcdef2"
+
+// Create display instance
 TFT_eSPI tft = TFT_eSPI();
+
+// BLE Characteristic pointers
+BLECharacteristic* throttleChar = nullptr;
+BLECharacteristic* calibChar    = nullptr;
+
+// Connection flag
+volatile bool deviceConnected = false;
+// Calibration flag
+volatile bool needCalibration = false;
+
+// Server callbacks to track connection status
+class ServerCallbacks : public BLEServerCallbacks {
+  void onConnect(BLEServer* pServer) override {
+    deviceConnected = true;
+    // Display 'Connected' message
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextSize(2);
+    tft.setCursor(0, 0);
+    tft.print("Connected");
+  }
+  void onDisconnect(BLEServer* pServer) override {
+    deviceConnected = false;
+    // Display 'Disconnected'
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextSize(2);
+    tft.setCursor(0, 0);
+    tft.print("Disconnected");
+  }
+};
+
+// Callback to handle writes to calibration characteristic
+class CalibCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* pChar) override {
+    String data = pChar->getValue();
+    if (data.length() > 0 && data[0] == 0x01) {
+      needCalibration = true;
+      // Provide immediate on-screen feedback
+      tft.fillScreen(TFT_BLACK);
+      tft.setTextSize(2);
+      tft.setCursor(0, 40);
+      tft.print("Calibrated!");
+    }
+  }
+};
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+  delay(500);
 
-  // Initialize BLE
-  BLEDevice::init("");
-
-  // Initialize the TFT display
+  // Initialize the display
   tft.init();
-  tft.setRotation(1);         // Rotate display if needed (0-3)
+  tft.setRotation(1);
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.setTextSize(2);
+  tft.setCursor(0, 0);
+  tft.println("Starting BLE");
+
+  // Initialize BLE peripheral
+  BLEDevice::init("aupesbox");
+  BLEServer* server = BLEDevice::createServer();
+  server->setCallbacks(new ServerCallbacks());
+  BLEService* service = server->createService(SERVICE_UUID);
+
+  // Throttle % (Notify)
+  throttleChar = service->createCharacteristic(
+    CHAR_THROTTLE_UUID,
+    BLECharacteristic::PROPERTY_NOTIFY
+  );
+  throttleChar->addDescriptor(new BLE2902());
+
+  // Calibration (Write)
+  calibChar = service->createCharacteristic(
+    CHAR_CALIBRATE_UUID,
+    BLECharacteristic::PROPERTY_WRITE
+  );
+  calibChar->setCallbacks(new CalibCallbacks());
+
+  service->start();
+
+  // Start advertising
+  BLEAdvertising* adv = server->getAdvertising();
+  adv->addServiceUUID(SERVICE_UUID);
+  adv->setScanResponse(true);
+  adv->start();
+
+  Serial.println("aupesbox peripheral up and advertising");
 }
 
 void loop() {
-  // Clear screen at start of each scan
-  tft.fillScreen(TFT_BLACK);
-  tft.drawString("Scanning BLE...", 0, 0, 2);
+  // === Simulate throttle angle (0–255) ===
+  static uint8_t angle = 0;
+  static int8_t dir = 1;
+  angle += dir;
+  if (angle == 0 || angle == 255) dir = -dir;
 
-  // Perform BLE scan
-  BLEScan* pBLEScan = BLEDevice::getScan();
-  pBLEScan->setActiveScan(true);
-  BLEScanResults* pResults = pBLEScan->start(scanTime, false);
-
-  int count = pResults->getCount();
-  Serial.printf("Found %d devices:\n", count);
-
-  // Display up to 4 devices to avoid overlap
-  int maxDisplay = min(count, 4);
-  for (int i = 0; i < maxDisplay; i++) {
-    BLEAdvertisedDevice device = pResults->getDevice(i);
-    String name = device.getName().length() ? device.getName().c_str() : "<no name>";
-    String line = String(i) + ":" + name + " RSSI=" + device.getRSSI();
-    // Y = header height (approx 18px) + i * line height (20px)
-    tft.drawString(line, 0, 35 + i*20, 1);
-    Serial.println(line);
+  // === Notify central ===
+  if (deviceConnected) {
+    throttleChar->setValue(&angle, 1);
+    throttleChar->notify();
+    // Update on-screen throttle display
+    tft.fillRect(0, 80, 240, 40, TFT_BLACK);  // clear area
+    tft.setTextSize(3);
+    tft.setCursor(0, 80);
+    tft.printf("Thr: %d%%", angle);
   }
 
-  // Clean up and short delay
-  pBLEScan->clearResults();
-  delay(1000);
+  // === Handle calibration flag ===
+  if (needCalibration) {
+    needCalibration = false;
+  }
+
+  delay(50);  // ~20 Hz update rate
 }
