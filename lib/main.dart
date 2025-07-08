@@ -3,12 +3,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:revrider/utils/themes.dart';
 
+import 'utils/themes.dart';
 import 'providers/theme_provider.dart';
 import 'providers/purchase_provider.dart';
 import 'providers/app_state.dart';
 import 'services/ble_manager.dart';
+import 'ui/splash_screen.dart';
 import 'ui/home_screen.dart';
 
 void main() async {
@@ -28,12 +29,15 @@ void main() async {
     MultiProvider(
       providers: [
         // Theme must come first so every screen can read it
-        ChangeNotifierProvider<ThemeProvider>.value(
-          value: themeProvider,
-        ),
+        ChangeNotifierProvider<ThemeProvider>.value(value: themeProvider),
 
+        // BLE manager
         Provider(create: (_) => BleManager()),
+
+        // In-app purchase state
         ChangeNotifierProvider(create: (_) => PurchaseProvider()),
+
+        // AppState (needs BleManager & PurchaseProvider)
         ChangeNotifierProvider(
           create: (ctx) => AppState(ctx.read<BleManager>()),
         ),
@@ -56,7 +60,12 @@ class RevRiderApp extends StatelessWidget {
       theme: AppThemes.lightTheme,
       darkTheme: AppThemes.darkTheme,
       themeMode: themeMode,
-      home: const HomeScreen(),
+      // Start at the splash screen, which will auto-navigate to HomeScreen
+      home: const SplashScreen(),
+      routes: {
+        // Named route in case you need to push directly:
+        '/home': (_) => const HomeScreen(),
+      },
     );
   }
 }

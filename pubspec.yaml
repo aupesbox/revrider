@@ -13,7 +13,7 @@ dependencies:
 # pubspec.yaml
 
   permission_handler: ^12.0.1
-
+  lottie: ^2.2.0
   # BLE
   flutter_reactive_ble: ^5.0.2
 
@@ -65,6 +65,7 @@ flutter:
     - assets/sounds/default/high.mp3
     - assets/sounds/default/cutoff.mp3
     - assets/music/demo_song.mp3
+    - assets/lottie/splash.json
     # - assets/sounds/sport/idle.mp3
     # - assets/sounds/sport/mid.mp3
     # - assets/sounds/sport/high.mp3
