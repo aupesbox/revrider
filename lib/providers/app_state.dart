@@ -2,110 +2,77 @@
 
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/src/widgets/framework.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../config.dart';
 import '../services/ble_manager.dart';
 import '../services/audio_manager.dart';
 
 class AppState extends ChangeNotifier {
-  AppState(this._ble) {
-    _init();
-  }
+  AppState(this._ble) { _init(); }
 
   final BleManager _ble;
-
-  /// Single, shared audio engine
   final AudioManager audio = AudioManager();
 
-  bool _testPremium = false;
-  bool get testPremium => _testPremium;
-  set testPremium(bool v) {
-    _testPremium = v;
-    notifyListeners();
-  }
+  bool isPremium = false;
+  void setPremium(bool v) { isPremium = v; notifyListeners(); }
 
-  int throttle = 0;
-  int battery  = 100;  // stub for now
+  int throttle = 0, battery = 100;
   BleConnectionStatus connState = BleConnectionStatus.disconnected;
-
-  /// Currently playing music track (filename)
   String? currentTrack;
 
-  /// Call this whenever you load or start a new track
-  void setCurrentTrack(String? track) {
-    currentTrack = track;
-    notifyListeners();
-  }
-
-  /// Request runtime permissions then start scanning
   Future<void> connectDevice() async {
-    if (demoMode) return;
     if (Platform.isAndroid) {
-      await [
-        Permission.bluetoothScan,
-        Permission.bluetoothConnect,
-        Permission.locationWhenInUse,
-      ].request();
+      await [ Permission.bluetoothScan, Permission.bluetoothConnect, Permission.locationWhenInUse ]
+          .request();
     }
+    // start scan & connection sequence
     await _ble.startScan();
   }
 
+  Future<void> disconnectDevice() async {
+    await _ble.disconnect();
+  }
+
   Future<void> _init() async {
-    // 1️⃣ Initialize & start audio once
-    try {
-      await audio.init();
-      await audio.play();
-    } catch (e, st) {
-      debugPrint('Audio init/play failed: $e\n$st');
-    }
+    // 1️⃣ Audio preload
+    await audio.init();
 
-    // 2️⃣ BLE: only if not in demo
-    if (!demoMode) {
-      _ble.connectionStateStream.listen((status) {
-        connState = status;
-        notifyListeners();
-        if (status == BleConnectionStatus.discovered) {
-          _ble.connect().catchError((e) {
-            debugPrint('BLE connect error: $e');
-          });
-        }
-      }, onError: (e) {
-        debugPrint('BLE connectionStateStream error: $e');
-      });
+    // 2️⃣ BLE state handling
+    _ble.connectionStateStream.listen((status) {
+      connState = status;
+      notifyListeners();
 
-      _ble.throttleStream.listen((value) {
-        setThrottle(value);
-      }, onError: (e) {
-        debugPrint('BLE throttleStream error: $e');
-      });
+      if (status == BleConnectionStatus.connected) {
+        // ❶ play the “start” sound once…
+        audio.playStart();
+      } else if (status == BleConnectionStatus.disconnected) {
+        // optionally stop/pause audio loops?
+      }
+    });
 
-      await _ble.startScan().catchError((e) {
-        debugPrint('BLE startScan error: $e');
-      });
-    }
+    // 3️⃣ Throttle updates
+    _ble.throttleStream.listen((val) {
+      throttle = val.clamp(0,100);
+      audio.updateThrottle(throttle.toDouble());
+      notifyListeners();
+    });
+
+    // 4️⃣ Begin scanning in production mode
+    await connectDevice();
   }
 
-  void setThrottle(int value) {
-    throttle = value.clamp(0, 100);
-    audio.updateThrottle(throttle.toDouble());
+  Future<bool> calibrateThrottle() async {
+    return await _ble.calibrateZero().then((_) => true).catchError((_) => false);
+  }
+
+  void setCurrentTrack(String? t) {
+    currentTrack = t;
     notifyListeners();
-  }
-
-  Future<bool> calibrateThrottle(BuildContext context) async {
-    try {
-      await _ble.calibrateZero();
-      return true;
-    } catch (e) {
-      debugPrint('Calibration failed: $e');
-      return false;
-    }
   }
 
   @override
   void dispose() {
-    if (!demoMode) _ble.dispose();
+    _ble.dispose();
     audio.dispose();
     super.dispose();
   }

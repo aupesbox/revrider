@@ -3,7 +3,6 @@
 import 'dart:async';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 
-/// Simplified BLE states for your app
 enum BleConnectionStatus {
   disconnected,
   scanning,
@@ -13,42 +12,37 @@ enum BleConnectionStatus {
 }
 
 class BleManager {
-  // 1️⃣ Core BLE instance
   final FlutterReactiveBle _ble;
 
-  // 2️⃣ Your service + characteristic UUIDs (must match the ESP32 firmware)
-  final Uuid _serviceUuid       = Uuid.parse("12345678-1234-5678-1234-56789abcdef0");
-  final Uuid _throttleCharUuid  = Uuid.parse("12345678-1234-5678-1234-56789abcdef1");
-  final Uuid _calibCharUuid     = Uuid.parse("12345678-1234-5678-1234-56789abcdef2");
+  final Uuid _serviceUuid      = Uuid.parse("12345678-1234-5678-1234-56789abcdef0");
+  final Uuid _throttleCharUuid = Uuid.parse("12345678-1234-5678-1234-56789abcdef1");
+  final Uuid _calibCharUuid    = Uuid.parse("12345678-1234-5678-1234-56789abcdef2");
 
-  // 3️⃣ Streams exposed to UI/state
   final _connStatusCtrl = StreamController<BleConnectionStatus>.broadcast();
   Stream<BleConnectionStatus> get connectionStateStream => _connStatusCtrl.stream;
 
   final _throttleCtrl = StreamController<int>.broadcast();
   Stream<int> get throttleStream => _throttleCtrl.stream;
 
-  // 4️⃣ Internals for scan/connect
-  StreamSubscription<DiscoveredDevice>?     _scanSub;
+  StreamSubscription<DiscoveredDevice>?      _scanSub;
   StreamSubscription<ConnectionStateUpdate>? _connSub;
-  QualifiedCharacteristic?                 _throttleChar;
-  QualifiedCharacteristic?                 _calibChar;
-  String?                                  _deviceId;
+  QualifiedCharacteristic?                   _throttleChar;
+  QualifiedCharacteristic?                   _calibChar;
+  String?                                    _deviceId;
 
-  BleManager([FlutterReactiveBle? ble])
-      : _ble = ble ?? FlutterReactiveBle();
+  BleManager([FlutterReactiveBle? ble]) : _ble = ble ?? FlutterReactiveBle();
 
-  /// Start scanning for your RevRiderSensor
   Future<void> startScan() async {
     _connStatusCtrl.add(BleConnectionStatus.scanning);
+    await _scanSub?.cancel();
 
     _scanSub = _ble
         .scanForDevices(withServices: [_serviceUuid])
         .listen((device) {
-      if (device.name == "RevRiderSensor") {
+      if (device.name == "aupesbox" || device.name == "RevRiderSensor") {
+        _deviceId = device.id;
         _connStatusCtrl.add(BleConnectionStatus.discovered);
         _scanSub?.cancel();
-        _deviceId = device.id;
         _prepareConnection();
       }
     }, onError: (_) {
@@ -57,7 +51,6 @@ class BleManager {
   }
 
   void _prepareConnection() {
-    // Prepare the QualifiedCharacteristic instances
     _throttleChar = QualifiedCharacteristic(
       serviceId:        _serviceUuid,
       characteristicId: _throttleCharUuid,
@@ -71,9 +64,9 @@ class BleManager {
     connect();
   }
 
-  /// Connect and subscribe to throttle notifications
   Future<void> connect() async {
     _connStatusCtrl.add(BleConnectionStatus.connecting);
+    await _connSub?.cancel();
 
     _connSub = _ble
         .connectToDevice(
@@ -84,16 +77,12 @@ class BleManager {
       if (update.connectionState == DeviceConnectionState.connected) {
         _connStatusCtrl.add(BleConnectionStatus.connected);
 
-        // Subscribe to throttle notifications
+        // subscribe to throttle
         _ble
             .subscribeToCharacteristic(_throttleChar!)
             .listen((data) {
-          if (data.isNotEmpty) {
-            _throttleCtrl.add(data[0]);
-          }
-        }, onError: (_) {
-          // handle stream errors if needed
-        });
+          if (data.isNotEmpty) _throttleCtrl.add(data[0]);
+        }, onError: (_) {});
       } else if (update.connectionState == DeviceConnectionState.disconnected) {
         _connStatusCtrl.add(BleConnectionStatus.disconnected);
       }
@@ -102,10 +91,16 @@ class BleManager {
     });
   }
 
-  /// Send the “zero-throttle” command (any value) to your device
+  /// Cancels the connection subscription (reactive_ble will tear down the link)
+  Future<void> disconnect() async {
+    await _connSub?.cancel();
+    _connSub = null;
+    _connStatusCtrl.add(BleConnectionStatus.disconnected);
+  }
+
   Future<void> calibrateZero() async {
     if (_calibChar == null) {
-      throw StateError("Not connected to device");
+      throw StateError("Not connected");
     }
     await _ble.writeCharacteristicWithoutResponse(
       _calibChar!,
@@ -113,7 +108,6 @@ class BleManager {
     );
   }
 
-  /// Clean up all subscriptions
   void dispose() {
     _scanSub?.cancel();
     _connSub?.cancel();

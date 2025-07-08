@@ -2,8 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
-import '../config.dart';
 import '../providers/app_state.dart';
 import '../services/ble_manager.dart';
 import 'app_scaffold.dart';
@@ -14,25 +12,24 @@ import 'twin_throttle_gauge.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
 
-    // Human-readable connection status
+    // connection label
     final connLabel = {
       BleConnectionStatus.disconnected: 'Disconnected',
       BleConnectionStatus.scanning:     'Scanning…',
-      BleConnectionStatus.discovered:   'Discovered',
+      BleConnectionStatus.discovered:   'Found device',
       BleConnectionStatus.connecting:   'Connecting…',
       BleConnectionStatus.connected:    'Connected',
     }[state.connState]!;
 
     return AppScaffold(
-      title: 'Home',
+      title: 'RevRider',
       child: Column(
         children: [
-          // 1) Gauges
+          // 🔧 Gauges
           Expanded(
             child: PageView(
               children: [
@@ -44,30 +41,37 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
 
-          // 2) Start / Connect button
+          // 🔗 Connect / Disconnect
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             child: ElevatedButton.icon(
-              icon: const Icon(Icons.bluetooth_searching),
-              label: const Text('Start'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-              ),
-              onPressed: () => context.read<AppState>().connectDevice(),
+              icon: Icon(state.connState == BleConnectionStatus.connected
+                  ? Icons.bluetooth_disabled
+                  : Icons.bluetooth_searching),
+              label: Text(state.connState == BleConnectionStatus.connected
+                  ? 'Disconnect Sensor'
+                  : 'Connect Sensor'),
+              onPressed: () {
+                if (state.connState == BleConnectionStatus.connected) {
+                  context.read<AppState>().disconnectDevice();
+                } else {
+                  context.read<AppState>().connectDevice();
+                }
+              },
+              style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
             ),
           ),
 
-          // 3) Info Bar: Battery | Connection | Now Playing
+          // ℹ️ Info card: battery | connection | now playing
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             elevation: 2,
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              padding: const EdgeInsets.all(16),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  // Battery
                   Column(
                     children: [
                       const Icon(Icons.battery_full, color: Colors.green),
@@ -75,8 +79,6 @@ class HomeScreen extends StatelessWidget {
                       Text('${state.battery}%', style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
-
-                  // Connection Status
                   Column(
                     children: [
                       const Icon(Icons.bluetooth, color: Colors.blueAccent),
@@ -84,8 +86,6 @@ class HomeScreen extends StatelessWidget {
                       Text(connLabel, style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
-
-                  // Now Playing (requires AppState.currentTrack)
                   Column(
                     children: [
                       const Icon(Icons.music_note, color: Colors.purpleAccent),
@@ -101,27 +101,6 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
-
-          // 4) Demo slider (only if demoMode)
-          if (demoMode)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              child: Column(
-                children: [
-                  Text(
-                    'Demo Throttle: ${state.throttle}%',
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                  Slider(
-                    min: 0,
-                    max: 100,
-                    divisions: 100,
-                    value: state.throttle.toDouble(),
-                    onChanged: (v) => context.read<AppState>().setThrottle(v.toInt()),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );

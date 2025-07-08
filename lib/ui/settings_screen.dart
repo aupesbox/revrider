@@ -51,7 +51,7 @@ class SettingsScreen extends StatelessWidget {
                   icon: const Icon(Icons.tune),
                   label: const Text('Re-Calibrate Throttle'),
                   onPressed: () => context.read<AppState>()
-                      .calibrateThrottle(context),
+                      .calibrateThrottle(),
                 );
               }
             },
