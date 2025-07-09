@@ -2,146 +2,177 @@
 
 import 'package:just_audio/just_audio.dart';
 
+/// Defines each of the seven exhaust‐sound phases.
+enum ThrottleSegment {
+  start,
+  idle,
+  firstGear,
+  secondGear,
+  thirdGear,
+  cruise,
+  cutoff,
+}
+
 class AudioManager {
-  // Engine-sound players
-  final AudioPlayer _startPlayer  = AudioPlayer();
-  final AudioPlayer _idlePlayer   = AudioPlayer();
-  final AudioPlayer _midPlayer    = AudioPlayer();
-  final AudioPlayer _highPlayer   = AudioPlayer();
-  final AudioPlayer _cutoffPlayer = AudioPlayer();
+  // ─── Engine Players ─────────────────────────────────
+  final AudioPlayer _startPlayer   = AudioPlayer();
+  final AudioPlayer _idlePlayer    = AudioPlayer();
+  final AudioPlayer _gear1Player   = AudioPlayer();
+  final AudioPlayer _gear2Player   = AudioPlayer();
+  final AudioPlayer _gear3Player   = AudioPlayer();
+  final AudioPlayer _cruisePlayer  = AudioPlayer();
+  final AudioPlayer _cutoffPlayer  = AudioPlayer();
 
-  // Music player
-  final AudioPlayer _musicPlayer  = AudioPlayer();
+  // ─── Music Player ──────────────────────────────────
+  final AudioPlayer _musicPlayer   = AudioPlayer();
 
+  // ─── State ───────────────────────────────────────
   String currentProfile = 'default';
-  double _crossfadeRate = 1.0;
-  double _pitchSens     = 1.0;
-  double _masterVolume  = 1.0;
-  double _lastThrottle  = 0.0;
+  ThrottleSegment _currentSegment = ThrottleSegment.idle;
+  double _masterVolume   = 1.0;
+  double _crossfadeRate  = 1.0;
+  double _pitchSens      = 1.0;
+  double _lastThrottle   = 0.0;
 
-  /// Load all engine-banks and set them to loop
+  /// Preload all seven exhaust segments (start is one‐shot).
   Future<void> init() async {
     final base = 'assets/sounds/$currentProfile';
 
-    await _startPlayer.setAsset('$base/start.mp3');
-    await _idlePlayer .setAsset('$base/idle.mp3');
-    _idlePlayer.setLoopMode(LoopMode.one);
-    await _midPlayer  .setAsset('$base/mid.mp3');
-    _midPlayer.setLoopMode(LoopMode.one);
-    await _highPlayer .setAsset('$base/high.mp3');
-    _highPlayer.setLoopMode(LoopMode.one);
-    await _cutoffPlayer.setAsset('$base/cutoff.mp3');
-    _cutoffPlayer.setLoopMode(LoopMode.one);
+    await _startPlayer .setAsset('$base/start.mp3')
+        .then((_) => _startPlayer.setLoopMode(LoopMode.off));
+
+    await _idlePlayer  .setAsset('$base/idle.mp3')
+        .then((_) => _idlePlayer.setLoopMode(LoopMode.one));
+
+    await _gear1Player .setAsset('$base/first_gear.mp3')
+        .then((_) => _gear1Player.setLoopMode(LoopMode.one));
+
+    await _gear2Player .setAsset('$base/second_gear.mp3')
+        .then((_) => _gear2Player.setLoopMode(LoopMode.one));
+
+    await _gear3Player .setAsset('$base/third_gear.mp3')
+        .then((_) => _gear3Player.setLoopMode(LoopMode.one));
+
+    await _cruisePlayer.setAsset('$base/cruise.mp3')
+        .then((_) => _cruisePlayer.setLoopMode(LoopMode.one));
+
+    await _cutoffPlayer.setAsset('$base/cutoff.mp3')
+        .then((_) => _cutoffPlayer.setLoopMode(LoopMode.one));
   }
 
-  /// Alias for legacy calls
+  // ─── Legacy / UI‐friendly API ──────────────────────
+
+  /// Exactly your old `play()` call.
   Future<void> play() => playStart();
 
-  /// Play "start" once, then begin looping banks
+  /// Play the one‐shot “start” then loop idle.
   Future<void> playStart() async {
+    await _stopAllLoopers();
+    await _startPlayer.seek(Duration.zero);
     await _startPlayer.play();
-    await playLoops();
+    final dur = _startPlayer.duration ?? const Duration(seconds: 1);
+    Future.delayed(dur, () => _playSegment(ThrottleSegment.idle));
   }
 
-  /// Loop idle→mid→high→cutoff indefinitely
-  Future<void> playLoops() async {
-    await Future.wait([
-      _idlePlayer.play(),
-      _midPlayer.play(),
-      _highPlayer.play(),
-      _cutoffPlayer.play(),
-    ]);
-    _applyThrottle(_lastThrottle);
-  }
-
-  /// Update volumes + pitch based on 0–100 throttle
-  void updateThrottle(double throttlePercent) {
-    _lastThrottle = throttlePercent;
-    _applyThrottle(throttlePercent);
-  }
-
-  void _applyThrottle(double throttlePercent) {
-    final t   = (throttlePercent / 100).clamp(0.0, 1.0);
-    final seg = (1 / 3) * _crossfadeRate;
-    double vIdle = 0, vMid = 0, vHigh = 0, vCutoff = 0;
-
-    if (t <= seg) {
-      final p = t / seg;
-      vIdle = 1 - p;
-      vMid  = p;
-    } else if (t <= 2 * seg) {
-      final p = (t - seg) / seg;
-      vMid  = 1 - p;
-      vHigh = p;
-    } else {
-      final p = (t - 2 * seg) / (1 - 2 * seg);
-      vHigh   = 1 - p;
-      vCutoff = p;
-    }
-
-    _idlePlayer  .setVolume(vIdle   * _masterVolume);
-    _midPlayer   .setVolume(vMid    * _masterVolume);
-    _highPlayer  .setVolume(vHigh   * _masterVolume);
-    _cutoffPlayer.setVolume(vCutoff * _masterVolume);
-
-    final speed = (0.8 + t) * _pitchSens;
-    for (var p in [_idlePlayer, _midPlayer, _highPlayer, _cutoffPlayer]) {
-      p.setSpeed(speed);
-    }
-  }
-
-  /// Overall engine volume
-  void setMasterVolume(double volume) {
-    _masterVolume = volume.clamp(0.0, 1.0);
-    _applyThrottle(_lastThrottle);
-  }
-
-  /// How sharp each bank transitions
+  /// Change crossfade sharpness, then reapply current throttle.
   void setCrossfadeRate(double rate) {
     _crossfadeRate = rate.clamp(0.1, 2.0);
-    _applyThrottle(_lastThrottle);
+    updateThrottle(_lastThrottle);
   }
 
-  /// How much pitch changes with throttle
+  /// Change pitch sensitivity, then reapply.
   void setPitchSensitivity(double sens) {
     _pitchSens = sens.clamp(0.1, 3.0);
-    _applyThrottle(_lastThrottle);
+    updateThrottle(_lastThrottle);
   }
 
-  /// Switch to a different sound profile
+  /// Change overall engine volume, then reapply.
+  void setMasterVolume(double vol) {
+    _masterVolume = vol.clamp(0.0, 1.0);
+    updateThrottle(_lastThrottle);
+  }
+
+  // ─── Throttle‐driven logic ─────────────────────────
+
+  /// Feed in a new throttle % 0–100.
+  void updateThrottle(double throttlePercent) {
+    _lastThrottle = throttlePercent;
+    final t = (throttlePercent / 100).clamp(0.0, 1.0);
+
+    ThrottleSegment seg;
+    if (t == 0) seg = ThrottleSegment.idle;
+    else if (t < 0.2) seg = ThrottleSegment.firstGear;
+    else if (t < 0.4) seg = ThrottleSegment.secondGear;
+    else if (t < 0.6) seg = ThrottleSegment.thirdGear;
+    else if (t < 0.8) seg = ThrottleSegment.cruise;
+    else seg = ThrottleSegment.cutoff;
+
+    if (seg != _currentSegment) {
+      _playSegment(seg);
+    }
+  }
+
+  Future<void> _playSegment(ThrottleSegment seg) async {
+    _currentSegment = seg;
+    await _stopAllLoopers();
+    final player = <ThrottleSegment, AudioPlayer>{
+      ThrottleSegment.idle:       _idlePlayer,
+      ThrottleSegment.firstGear:  _gear1Player,
+      ThrottleSegment.secondGear: _gear2Player,
+      ThrottleSegment.thirdGear:  _gear3Player,
+      ThrottleSegment.cruise:     _cruisePlayer,
+      ThrottleSegment.cutoff:     _cutoffPlayer,
+    }[seg];
+    if (player != null) {
+      await player.seek(Duration.zero);
+      await player.setVolume(_masterVolume);
+      await player.setSpeed(0.8 + (_lastThrottle/100) * _pitchSens);
+      await player.play();
+    }
+  }
+
+  Future<void> _stopAllLoopers() async {
+    for (var p in [
+      _idlePlayer,
+      _gear1Player,
+      _gear2Player,
+      _gear3Player,
+      _cruisePlayer,
+      _cutoffPlayer,
+    ]) {
+      await p.stop();
+    }
+  }
+
+  // ─── Profile switching ────────────────────────────
+
+  /// Load a different bank and re‐init.
   Future<void> switchProfile(String profileName) async {
     currentProfile = profileName;
     await init();
-    await playStart();
   }
 
-  // ── Music API ───────────────────────────────────────
+  // ─── Music API ─────────────────────────────────────
 
-  /// Load a music asset (for Music Mode)
-  Future<void> loadMusicAsset(String assetPath) async {
-    await _musicPlayer.setAsset(assetPath);
-  }
+  Future<void> loadMusicAsset(String path)   => _musicPlayer.setAsset(path);
+  Future<void> playMusic()                   => _musicPlayer.play();
+  Future<void> pauseMusic()                  => _musicPlayer.pause();
+  Future<void> setMusicMix(double mix)       => _musicPlayer.setVolume(mix.clamp(0.0, 1.0));
 
-  /// Play loaded music
-  Future<void> playMusic() => _musicPlayer.play();
+  // ─── Cleanup ──────────────────────────────────────
 
-  /// Pause music
-  Future<void> pauseMusic() => _musicPlayer.pause();
-
-  /// Mix ratio: 0.0 = pure engine, 1.0 = pure music
-  void setMusicMix(double mix) {
-    _musicPlayer.setVolume(mix.clamp(0.0, 1.0));
-  }
-
-  /// Clean up all players
   Future<void> dispose() async {
-    await Future.wait([
-      _startPlayer.dispose(),
-      _idlePlayer.dispose(),
-      _midPlayer.dispose(),
-      _highPlayer.dispose(),
-      _cutoffPlayer.dispose(),
-      _musicPlayer.dispose(),
-    ]);
+    for (var p in [
+      _startPlayer,
+      _idlePlayer,
+      _gear1Player,
+      _gear2Player,
+      _gear3Player,
+      _cruisePlayer,
+      _cutoffPlayer,
+      _musicPlayer,
+    ]) {
+      await p.dispose();
+    }
   }
 }
