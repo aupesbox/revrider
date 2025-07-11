@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:revrider/providers/sound_bank_provider.dart';
 
 import 'utils/themes.dart';
 import 'providers/theme_provider.dart';
@@ -30,12 +31,17 @@ void main() async {
       providers: [
         // Theme must come first so every screen can read it
         ChangeNotifierProvider<ThemeProvider>.value(value: themeProvider),
-
+        ChangeNotifierProvider(create: (_) => PurchaseProvider()),
+        ChangeNotifierProxyProvider<PurchaseProvider, SoundBankProvider>(
+          // create only runs once, so we grab the PurchaseProvider right away
+          create: (context) => SoundBankProvider(context.read<PurchaseProvider>()),
+          // update will be called whenever PurchaseProvider changes
+          update: (context, purchaseProv, bankProv) =>
+          bankProv!..updatePurchaseProvider(purchaseProv),
+        ),
         // BLE manager
         Provider(create: (_) => BleManager()),
 
-        // In-app purchase state
-        ChangeNotifierProvider(create: (_) => PurchaseProvider()),
 
         // AppState (needs BleManager & PurchaseProvider)
         ChangeNotifierProvider(
@@ -48,7 +54,7 @@ void main() async {
 }
 
 class RevRiderApp extends StatelessWidget {
-  const RevRiderApp({Key? key}) : super(key: key);
+  const RevRiderApp({super.key});
 
   @override
   Widget build(BuildContext context) {

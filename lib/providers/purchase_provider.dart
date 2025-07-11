@@ -4,115 +4,120 @@ import 'package:flutter/foundation.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 class PurchaseProvider extends ChangeNotifier {
-  bool _isPremium    = false;
-  bool _devOverride  = false;   // new
+  bool _isPremium   = false;
+  bool _devOverride = false;   // allow QA / dev to override
   Offerings? _offerings;
 
-  /// True if real-purchase or developer override is enabled
+  /// Tracks all active entitlement IDs
+  final Set<String> _purchasedItems = {};
+
+  /// true if user has purchased the “premium” entitlement or devOverride==true
   bool get isPremium => _isPremium || _devOverride;
 
-  /// Expose devOverride so we can bind it to a switch
+  /// Developer toggle to force premium (for testing)
   bool get devOverride => _devOverride;
 
+  /// Available offerings (packages/prices) from RevenueCat
   Offerings? get offerings => _offerings;
+
+  /// True if this [itemId] entitlement is active
+  bool isItemPurchased(String itemId) {
+    return _purchasedItems.contains(itemId);
+  }
 
   PurchaseProvider() {
     _init();
   }
 
   Future<void> _init() async {
+    // Listen to any remote entitlement changes (e.g. restores)
     Purchases.addCustomerInfoUpdateListener((info) {
-      _isPremium = info.entitlements.all["premium"]?.isActive ?? false;
-      notifyListeners();
+      _syncCustomerInfo(info);
     });
+
     try {
+      // Fetch your product offerings
       _offerings = await Purchases.getOfferings();
+      // And fetch current purchaser info
       final info = await Purchases.getCustomerInfo();
-      _isPremium = info.entitlements.all["premium"]?.isActive ?? false;
-      notifyListeners();
+      _syncCustomerInfo(info);
     } catch (e) {
-      debugPrint("Error fetching offerings: $e");
+      debugPrint('⚠️ RevenueCat init error: $e');
     }
   }
 
-  Future<void> purchasePremium() async {
-    if (_offerings?.current == null) return;
-    final pkg = _offerings!.current!.getPackage("premium_upgrade");
-    if (pkg == null) return;
+  void _syncCustomerInfo(CustomerInfo info) {
+    // Your “premium” entitlement ID in RevenueCat
+    _isPremium = info.entitlements.all['premium']?.isActive ?? false;
+
+    // Keep track of every active entitlement
+    _purchasedItems
+      ..clear()
+      ..addAll(info.entitlements.active.keys);
+
+    notifyListeners();
+  }
+
+  /// Purchase the one‐time “premium_upgrade” package
+  Future<bool> purchasePremium() async {
+    final offering = _offerings?.current;
+    if (offering == null) return false;
+    final pkg = offering.getPackage('premium_upgrade');
+    if (pkg == null) return false;
+
     try {
-      await Purchases.purchasePackage(pkg);
+      final info = await Purchases.purchasePackage(pkg);
+      _syncCustomerInfo(info);
+      return isPremium;
+    } on PurchasesError catch (e) {
+      debugPrint('❌ PurchasePremium failed: ${e.message}');
+      return false;
     } catch (e) {
-      debugPrint("Purchase failed: $e");
+      debugPrint('❌ Unknown error purchasing premium: $e');
+      return false;
     }
   }
 
+  /// Purchase any entitlement/product by its identifier
+  Future<bool> purchaseItem(String itemId) async {
+    try {
+      final info = await Purchases.purchaseProduct(itemId);
+      _syncCustomerInfo(info);
+      return isItemPurchased(itemId);
+    } on PurchasesError catch (e) {
+      debugPrint('❌ purchaseItem($itemId) failed: ${e.message}');
+      return false;
+    } catch (e) {
+      debugPrint('❌ Unknown error purchasing $itemId: $e');
+      return false;
+    }
+  }
+
+  /// Restore all previously made purchases
   Future<void> restorePurchases() async {
     try {
-      await Purchases.restorePurchases();
+      final info = await Purchases.restorePurchases();
+      _syncCustomerInfo(info);
     } catch (e) {
-      debugPrint("Restore failed: $e");
+      debugPrint('❌ RestorePurchases failed: $e');
     }
   }
 
-  /// Developer-only: force premium features on/off
+  /// Developer‐only: force premium features on/off
   void setDevOverride(bool value) {
     _devOverride = value;
     notifyListeners();
   }
-}
+// lib/providers/purchase_provider.dart
 
-// // lib/providers/purchase_provider.dart
-//
-// import 'package:flutter/foundation.dart';
-// import 'package:purchases_flutter/purchases_flutter.dart';
-//
-// class PurchaseProvider extends ChangeNotifier {
-//   bool _isPremium = false;
-//   Offerings? _offerings;
-//
-//   bool get isPremium => _isPremium;
-//   Offerings? get offerings => _offerings;
-//
-//   PurchaseProvider() {
-//     _init();
-//   }
-//
-//   Future<void> _init() async {
-//     // Listen for any customer info changes (purchase/restore)
-//     Purchases.addCustomerInfoUpdateListener((info) {
-//       _isPremium = info.entitlements.all["premium"]?.isActive ?? false;
-//       notifyListeners();
-//     });
-//
-//     // Fetch current offerings
-//     try {
-//       _offerings = await Purchases.getOfferings();
-//       final info = await Purchases.getCustomerInfo();
-//       _isPremium = info.entitlements.all["premium"]?.isActive ?? false;
-//       notifyListeners();
-//     } catch (e) {
-//       debugPrint("Error fetching offerings: $e");
-//     }
-//   }
-//
-//   Future<void> purchasePremium() async {
-//     if (_offerings == null) return;
-//     final premiumOffering = _offerings!.current;
-//     final package = premiumOffering?.getPackage("premium_upgrade");
-//     if (package == null) return;
-//     try {
-//       await Purchases.purchasePackage(package);
-//       // RevenueCat listener will update _isPremium
-//     } catch (e) {
-//       debugPrint("Purchase failed: $e");
-//     }
-//   }
-//
-//   Future<void> restorePurchases() async {
-//     try {
-//       await Purchases.restorePurchases();
-//     } catch (e) {
-//       debugPrint("Restore failed: $e");
-//     }
-//   }
-// }
+// … existing code …
+
+  /// Track arbitrary product entitlements (e.g. sound‐bank IDs).
+  final Set<String> _ownedItems = {};
+
+  /// Purchase a single item by ID.
+
+
+
+
+}

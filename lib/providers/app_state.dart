@@ -21,17 +21,17 @@ class AppState extends ChangeNotifier {
   }
 
   // Connection & device info
-  BleConnectionStatus connState = BleConnectionStatus.disconnected;
-  String? connectedDeviceName;
+  BleConnectionStatus connState        = BleConnectionStatus.disconnected;
+  String?               connectedDeviceName;
 
   // Sensor data
   int throttle = 0;
-  int battery  = 100;
+  int battery  = 100;  // ← placeholder until you wire up a real battery characteristic
 
   // Music
   String? currentTrack;
 
-  /// Request runtime permissions (Android) then start scan
+  /// Called by “Connect Sensor” button
   Future<void> connectDevice() async {
     if (Platform.isAndroid) {
       await [
@@ -43,35 +43,43 @@ class AppState extends ChangeNotifier {
     await _ble.startScan();
   }
 
+  /// Called by “Disconnect” button
   Future<void> disconnectDevice() async {
     await _ble.disconnect();
+    audio.playCutoff();
+    setThrottle(0);
   }
 
   Future<void> _init() async {
-    // 1️⃣ Audio engine
+    // 1️⃣ Preload engine sounds (don’t start yet)
     try {
       await audio.init();
-      await audio.play();
     } catch (e, st) {
-      debugPrint('Audio init/play failed: $e\n$st');
+      debugPrint('Audio init failed: $e\n$st');
     }
 
-    // 2️⃣ BLE streams
+    // 2️⃣ BLE connection updates
     _ble.connectionStateStream.listen((status) {
       connState = status;
 
-      // capture device name when discovered
       if (status == BleConnectionStatus.discovered) {
         connectedDeviceName = _ble.deviceName;
       }
-      // clear on full disconnect
       if (status == BleConnectionStatus.disconnected) {
         connectedDeviceName = null;
       }
 
+      // play start/cutoff at transitions
+      if (status == BleConnectionStatus.connected) {
+        audio.playStart();
+      } else if (status == BleConnectionStatus.disconnected) {
+        audio.playCutoff();
+        setThrottle(0);
+      }
+
       notifyListeners();
 
-      // auto-connect on discovery
+      // auto-connect once discovered
       if (status == BleConnectionStatus.discovered) {
         _ble.connect().catchError((e) {
           debugPrint('BLE connect error: $e');
@@ -79,11 +87,18 @@ class AppState extends ChangeNotifier {
       }
     }, onError: (e) => debugPrint('BLE status error: $e'));
 
+    // 3️⃣ Throttle value updates (only when connected)
     _ble.throttleStream.listen((value) {
-      throttle = value.clamp(0, 100);
-      audio.updateThrottle(throttle.toDouble());
-      notifyListeners();
+      if (connState == BleConnectionStatus.connected) {
+        setThrottle(value);
+      }
     }, onError: (e) => debugPrint('BLE throttle error: $e'));
+  }
+
+  void setThrottle(int v) {
+    throttle = v.clamp(0, 100);
+    audio.updateThrottle(throttle.toDouble());
+    notifyListeners();
   }
 
   Future<bool> calibrateThrottle() async {
@@ -96,8 +111,8 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  void setCurrentTrack(String? track) {
-    currentTrack = track;
+  void setCurrentTrack(String? t) {
+    currentTrack = t;
     notifyListeners();
   }
 

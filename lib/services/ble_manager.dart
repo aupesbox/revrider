@@ -38,7 +38,7 @@ class BleManager {
   /// Last discovered device name
   String? get deviceName => _deviceName;
 
-  /// Start scanning for RevRiderSensor / aupesbox
+  /// Start scanning for your ESP32 peripheral ("aupesbox")
   Future<void> startScan() async {
     _connStatusCtrl.add(BleConnectionStatus.scanning);
     await _scanSub?.cancel();
@@ -46,7 +46,7 @@ class BleManager {
     _scanSub = _ble
         .scanForDevices(withServices: [_serviceUuid])
         .listen((device) {
-      if (device.name == "aupesbox" || device.name == "RevRiderSensor") {
+      if (device.name == "aupesbox") {
         _deviceId   = device.id;
         _deviceName = device.name;
         _connStatusCtrl.add(BleConnectionStatus.discovered);
@@ -85,11 +85,16 @@ class BleManager {
         .listen((update) {
       if (update.connectionState == DeviceConnectionState.connected) {
         _connStatusCtrl.add(BleConnectionStatus.connected);
+
         // subscribe to throttle
         _ble
             .subscribeToCharacteristic(_throttleChar!)
             .listen((data) {
-          if (data.isNotEmpty) _throttleCtrl.add(data[0]);
+          if (data.isNotEmpty) {
+            final raw = data[0];
+            final pct = ((raw / 255.0) * 100).round().clamp(0, 100);
+            _throttleCtrl.add(pct);
+          }
         }, onError: (_) {});
       } else if (update.connectionState == DeviceConnectionState.disconnected) {
         _connStatusCtrl.add(BleConnectionStatus.disconnected);
@@ -99,13 +104,13 @@ class BleManager {
     });
   }
 
+  /// Disconnect cleanly
   /// Disconnect by cancelling the connection subscription
   Future<void> disconnect() async {
     await _connSub?.cancel();
     _connSub = null;
     _connStatusCtrl.add(BleConnectionStatus.disconnected);
   }
-
   /// Send “zero-throttle” command
   Future<void> calibrateZero() async {
     if (_calibChar == null) {

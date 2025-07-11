@@ -14,7 +14,8 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final state     = context.watch<AppState>();
+    final isPremium = state.isPremium;
 
     final connLabel = {
       BleConnectionStatus.disconnected: 'Disconnected',
@@ -24,37 +25,56 @@ class HomeScreen extends StatelessWidget {
       BleConnectionStatus.connected:    'Connected',
     }[state.connState]!;
 
-    final isConnected = state.connState == BleConnectionStatus.connected;
+    // Build gauges plus a premium‐teaser page if needed
+    final gaugePages = <Widget>[
+      ThrottleGauge(value: state.throttle.toDouble()),
+      LinearThrottleGauge(value: state.throttle.toDouble()),
+      RangeThrottleGauge(value: state.throttle.toDouble()),
+      TwinThrottleGauge(value: state.throttle.toDouble()),
+    ];
+    if (!isPremium) {
+      gaugePages.add(
+        const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.workspace_premium, size: 64, color: Colors.amber),
+              SizedBox(height: 16),
+              Text(
+                'More gauges\navailable\nin Premium',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return AppScaffold(
       title: 'RevRider',
       child: Column(
         children: [
-          // 1) Real-time Throttle Gauges
-          Expanded(
-            child: PageView(
-              children: [
-                ThrottleGauge(value: state.throttle.toDouble()),
-                LinearThrottleGauge(value: state.throttle.toDouble()),
-                RangeThrottleGauge(value: state.throttle.toDouble()),
-                TwinThrottleGauge(value: state.throttle.toDouble()),
-              ],
-            ),
-          ),
+          // 1) Gauges
+          Expanded(child: PageView(children: gaugePages)),
 
-          // 2) Connect / Disconnect button
+          // 2) Connect / Disconnect
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
             child: ElevatedButton.icon(
-              icon: Icon(isConnected
-                  ? Icons.bluetooth_disabled
-                  : Icons.bluetooth_searching),
-              label: Text(isConnected
-                  ? 'Disconnect Sensor'
-                  : 'Connect Sensor'),
+              icon: Icon(
+                state.connState == BleConnectionStatus.connected
+                    ? Icons.bluetooth_disabled
+                    : Icons.bluetooth_searching,
+              ),
+              label: Text(
+                state.connState == BleConnectionStatus.connected
+                    ? 'Disconnect Sensor'
+                    : 'Connect Sensor',
+              ),
               style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
               onPressed: () {
-                if (isConnected) {
+                if (state.connState == BleConnectionStatus.connected) {
                   context.read<AppState>().disconnectDevice();
                 } else {
                   context.read<AppState>().connectDevice();
@@ -63,7 +83,7 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
 
-          // 3) Info Bar: Battery | Connection + Device | Now Playing
+          // 3) Info Bar: Battery | Connection | Now Playing / Premium Crown
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -78,36 +98,43 @@ class HomeScreen extends StatelessWidget {
                     children: [
                       const Icon(Icons.battery_full, color: Colors.green),
                       const SizedBox(height: 4),
-                      Text('${state.battery}%',
-                          style: Theme.of(context).textTheme.bodySmall),
+                      Text('${state.battery}%', style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
 
-                  // Connection + Device
+                  // Connection Status (+ device name)
                   Column(
                     children: [
                       const Icon(Icons.bluetooth, color: Colors.blueAccent),
                       const SizedBox(height: 4),
-                      Text(
-                        state.connectedDeviceName != null
-                            ? '$connLabel to ${state.connectedDeviceName}'
-                            : connLabel,
-                        style: Theme.of(context).textTheme.bodySmall,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      Text(connLabel, style: Theme.of(context).textTheme.bodySmall),
+                      if (state.connState == BleConnectionStatus.connected &&
+                          state.connectedDeviceName != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          state.connectedDeviceName!,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
                     ],
                   ),
 
-                  // Now Playing
+                  // Now Playing or Premium Crown
                   Column(
                     children: [
-                      const Icon(Icons.music_note, color: Colors.purpleAccent),
-                      const SizedBox(height: 4),
-                      Text(
-                        state.currentTrack ?? 'None',
-                        style: Theme.of(context).textTheme.bodySmall,
-                        overflow: TextOverflow.ellipsis,
+                      Icon(
+                        isPremium ? Icons.workspace_premium : Icons.music_note,
+                        color: isPremium ? Colors.amber : Colors.purpleAccent,
                       ),
+                      const SizedBox(height: 4),
+                      if (!isPremium)
+                        const Text('Premium', style: TextStyle(fontSize: 12))
+                      else
+                        Text(
+                          state.currentTrack ?? 'None',
+                          style: Theme.of(context).textTheme.bodySmall,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                     ],
                   ),
                 ],

@@ -105,8 +105,8 @@ void loop() {
   // === Simulate throttle angle (0–255) ===
   static uint8_t angle = 0;
   static int8_t dir = 1;
-  angle += dir;
-  if (angle == 0 || angle == 255) dir = -dir;
+  //angle += dir;
+  // if (angle == 0 || angle == 255) dir = -dir;
 
   // === Notify central ===
   if (deviceConnected) {
@@ -117,6 +117,7 @@ void loop() {
     tft.setTextSize(3);
     tft.setCursor(0, 80);
     tft.printf("Thr: %d%%", angle);
+    //angle -= dir;// remove this after imu
   }
 
   // === Handle calibration flag ===
