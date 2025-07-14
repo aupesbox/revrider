@@ -15,7 +15,7 @@ class PurchaseProvider extends ChangeNotifier {
   bool get isPremium => _isPremium || _devOverride;
 
   /// Developer toggle to force premium (for testing)
-  bool get devOverride => _devOverride;
+  //bool get devOverride => _devOverride;
 
   /// Available offerings (packages/prices) from RevenueCat
   Offerings? get offerings => _offerings;

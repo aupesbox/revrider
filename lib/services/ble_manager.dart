@@ -112,7 +112,7 @@ class BleManager {
     _connStatusCtrl.add(BleConnectionStatus.disconnected);
   }
   /// Send “zero-throttle” command
-  Future<void> calibrateZero() async {
+  Future<void> calibrate() async {
     if (_calibChar == null) {
       throw StateError("Not connected to device");
     }

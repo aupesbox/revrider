@@ -20,6 +20,8 @@ dependencies:
   archive: ^3.3.2
   # Audio engine
   just_audio: ^0.10.4
+  spotify_sdk: ^3.0.2
+  flutter_volume_controller: ^1.1.2
 
   # State management
   provider: ^6.0.5
@@ -61,17 +63,11 @@ flutter:
 
   # Sound assets (uncomment and add more profiles as you create them)
   assets:
-    - assets/sounds/default/start.mp3
-    - assets/sounds/default/idle.mp3
-    - assets/sounds/default/first_gear.mp3
-    - assets/sounds/default/second_gear.mp3
-    - assets/sounds/default/third_gear.mp3
-    - assets/sounds/default/cruise.mp3
-    - assets/sounds/default/cutoff.mp3
     - assets/sounds/default/exhaust_all.mp3
     - assets/music/demo_song.mp3
     - assets/lottie/splash.json
     - assets/lottie/splash.webm
+    - assets/catalog.json
     # - assets/sounds/sport/idle.mp3
     # - assets/sounds/sport/mid.mp3
     # - assets/sounds/sport/high.mp3

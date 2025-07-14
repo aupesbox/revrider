@@ -1,202 +1,93 @@
-// lib/services/audio_manager.dart
-
 import 'package:just_audio/just_audio.dart';
+import 'package:flutter_volume_controller/flutter_volume_controller.dart';
+import 'package:flutter/foundation.dart';
 
-/// The rev phases we carve out of one big file.
-enum ThrottleSegment {
-  start,
-  idle,
-  firstGear,
-  secondGear,
-  thirdGear,
-  cruise,
-  cutoff,
-}
+enum ThrottleSegment { start, idle, firstGear, secondGear, thirdGear, cruise, cutoff }
 
 class AudioManager {
-  // ─── Players ───────────────────────────────────────────
-  final AudioPlayer _startPlayer   = AudioPlayer();
-  final AudioPlayer _idlePlayer    = AudioPlayer();
-  final AudioPlayer _gear1Player   = AudioPlayer();
-  final AudioPlayer _gear2Player   = AudioPlayer();
-  final AudioPlayer _gear3Player   = AudioPlayer();
-  final AudioPlayer _cruisePlayer  = AudioPlayer();
-  final AudioPlayer _cutoffPlayer  = AudioPlayer();
+  final AudioPlayer _enginePlayer = AudioPlayer();
+  final AudioPlayer _musicPlayer = AudioPlayer();
 
-  // ─── Music Player ──────────────────────────────────
-  final AudioPlayer _musicPlayer   = AudioPlayer();
+  String _bankId = 'default';
+  String? _localPath;
+  String _fileName = 'exhaust_all.mp3';
 
-  // ─── State ───────────────────────────────────────
-  String currentProfile = 'default';               // folder under assets/sounds/
-  ThrottleSegment _currentSegment = ThrottleSegment.idle;
-  double _masterVolume    = 1.0;
-  double _crossfadeRate   = 1.0;
-  double _pitchSens       = 1.0;
-  double _lastThrottle    = 0.0;
+  double _engineVolume = 1.0;
+  double _pitchSens = 1.0;
 
-  /// Millisecond bounds for each segment in exhaust_all.mp3
-  static const Map<ThrottleSegment, List<int>> _segmentBounds = {
-    ThrottleSegment.start:     [0,    2500],
-    ThrottleSegment.idle:      [2500, 4500],
+  // Ducking + crossfade
+  double duckThreshold = 0.75;
+  double duckVolumeFactor = 0.3;
+  double crossfadeRate = 0.5;
+
+  static const Map<ThrottleSegment, List<int>> _bounds = {
+    ThrottleSegment.start: [0, 2500],
+    ThrottleSegment.idle: [2500, 4500],
     ThrottleSegment.firstGear: [4500, 6500],
-    ThrottleSegment.secondGear:[6500, 8500],
-    ThrottleSegment.thirdGear: [8500, 10500],
-    ThrottleSegment.cruise:    [10500,12500],
-    ThrottleSegment.cutoff:    [12500,14500],
+    ThrottleSegment.secondGear: [6500, 8500],
+    ThrottleSegment.thirdGear: [8500,10500],
+    ThrottleSegment.cruise: [10500,12500],
+    ThrottleSegment.cutoff: [12500,14500],
   };
 
-  /// Always clip from this master source
-  UriAudioSource get _masterSource => AudioSource.asset(
-    'assets/sounds/$currentProfile/exhaust_all.mp3',
-  );
-
-  /// Preload & configure each clip player.
-  Future<void> init() async {
-    await _configPlayer(_startPlayer,   ThrottleSegment.start,    loop: false);
-    await _configPlayer(_idlePlayer,    ThrottleSegment.idle,     loop: true);
-    await _configPlayer(_gear1Player,   ThrottleSegment.firstGear, loop: true);
-    await _configPlayer(_gear2Player,   ThrottleSegment.secondGear,loop: true);
-    await _configPlayer(_gear3Player,   ThrottleSegment.thirdGear, loop: true);
-    await _configPlayer(_cruisePlayer,  ThrottleSegment.cruise,   loop: true);
-    await _configPlayer(_cutoffPlayer,  ThrottleSegment.cutoff,   loop: true);
+  /// Load a new bank & file
+  Future<void> loadBank(String bankId, {String? localPath, required String masterFileName}) async {
+    _bankId = bankId;
+    _localPath = localPath;
+    _fileName = masterFileName;
   }
 
-  Future<void> _configPlayer(
-      AudioPlayer player,
-      ThrottleSegment seg, {
-        required bool loop,
-      }) async {
-    final bounds = _segmentBounds[seg]!;
-    await player.setAudioSource(
-      ClippingAudioSource(
-        start: Duration(milliseconds: bounds[0]),
-        end:   Duration(milliseconds: bounds[1]),
-        child: _masterSource,
-      ),
-    );
-    await player.setLoopMode(loop ? LoopMode.one : LoopMode.off);
+  Future<void> setEngineVolume(double v) async {
+    _engineVolume = v;
+    await _enginePlayer.setVolume(v);
   }
 
-  // ─── Playback API ───────────────────────────────────
+  void setPitchSensitivity(double s) => _pitchSens = s;
 
-  /// Exactly your old `play()` API.
-  Future<void> playStart() async {
-    await _stopAllLoopers();
-    await _startPlayer.seek(Duration.zero);
-    await _startPlayer.play();
-    final dur = _startPlayer.duration ?? const Duration(milliseconds: 1500);
-    Future.delayed(dur, () => _playSegment(ThrottleSegment.idle));
-    await _startPlayer.stop();
+  UriAudioSource get _masterSource {
+    if (_localPath != null) {
+      return AudioSource.uri(Uri.file('$_localPath/$_fileName'));
+    }
+    return AudioSource.asset('assets/sounds/$_bankId/$_fileName');
   }
 
-  /// On BLE disconnect.
-  Future<void> playCutoff() async {
-    await _stopAllLoopers();
-    //await _playSegment(ThrottleSegment.cutoff);
-    //final dur = _cutoffPlayer.duration ?? const Duration(milliseconds: 1500);
-    //Future.delayed(dur, () => _playSegment(ThrottleSegment.idle));
-  }
+  Future<void> updateThrottle(int angle) async {
+    final t = (angle/100).clamp(0,1);
+    final seg = _mapSegment(t.toDouble());
+    await _enginePlayer.play();
+    // ducking
+    final vol = t > duckThreshold ? duckVolumeFactor : 1.0;
+    await FlutterVolumeController.setVolume(vol);
 
-  /// Feed in throttle 0–100 and switch segments.
-  void updateThrottle(double throttlePercent) {
-    _lastThrottle = throttlePercent;
-    final t = (throttlePercent / 100).clamp(0.0, 1.0);
+    final b = _bounds[seg]!;
+    try {
+      await _enginePlayer.setAudioSource(
+        ClippingAudioSource(
+          start: Duration(milliseconds: b[0]),
+          end: Duration(milliseconds: b[1]),
+          child: _masterSource,
+        ),
+      );
+      await _enginePlayer.setVolume(_engineVolume);
+      await _enginePlayer.setSpeed(0.8 + t*_pitchSens);
 
-    ThrottleSegment seg;
-    if (t == 0) seg = ThrottleSegment.idle;
-    else if (t < 0.2) seg = ThrottleSegment.firstGear;
-    else if (t < 0.4) seg = ThrottleSegment.secondGear;
-    else if (t < 0.6) seg = ThrottleSegment.thirdGear;
-    else if (t < 0.8) seg = ThrottleSegment.cruise;
-    else seg = ThrottleSegment.cutoff;
-
-    if (seg != _currentSegment) {
-      _playSegment(seg);
+    } catch (e) {
+      debugPrint('AudioManager error: $e');
     }
   }
 
-  Future<void> _playSegment(ThrottleSegment seg) async {
-    _currentSegment = seg;
-    await _stopAllLoopers();
-    final playerMap = {
-      ThrottleSegment.idle:       _idlePlayer,
-      ThrottleSegment.firstGear:  _gear1Player,
-      ThrottleSegment.secondGear: _gear2Player,
-      ThrottleSegment.thirdGear:  _gear3Player,
-      ThrottleSegment.cruise:     _cruisePlayer,
-      ThrottleSegment.cutoff:     _cutoffPlayer,
-    };
-    final p = playerMap[seg];
-    if (p != null) {
-      await p.seek(Duration.zero);
-      await p.setVolume(_masterVolume);
-      await p.setSpeed(0.8 + (_lastThrottle / 100) * _pitchSens);
-      await p.play();
-    }
+  ThrottleSegment _mapSegment(double t) {
+    if (t==0) return ThrottleSegment.start;
+    if (t<0.1) return ThrottleSegment.idle;
+    if (t<0.33) return ThrottleSegment.firstGear;
+    if (t<0.66) return ThrottleSegment.secondGear;
+    if (t<0.9) return ThrottleSegment.thirdGear;
+    return ThrottleSegment.cutoff;
   }
+  Future<void> loadMusicAsset(String path) => _musicPlayer.setAsset(path);
+  Future<void> playMusic()    => _musicPlayer.play();
+  Future<void> pauseMusic() => _musicPlayer.pause();
 
-  Future<void> _stopAllLoopers() async {
-    for (var p in [
-      _idlePlayer,
-      _gear1Player,
-      _gear2Player,
-      _gear3Player,
-      _cruisePlayer,
-      _cutoffPlayer,
-    ]) {
-      await p.stop();
-    }
-  }
-
-  // ─── Profile switching ─────────────────────────────
-
-  /// Switch to another sound profile and reload segments.
-  Future<void> switchProfile(String profileName) async {
-    currentProfile = profileName;
-    await init();
-  }
-
-  // ─── Configuration API ─────────────────────────────
-
-  /// Change overall engine volume, then reapply.
-  void setMasterVolume(double vol) {
-    _masterVolume = vol.clamp(0.0, 1.0);
-    updateThrottle(_lastThrottle);
-  }
-
-  /// Change pitch sensitivity, then reapply.
-  void setPitchSensitivity(double sens) {
-    _pitchSens = sens.clamp(0.1, 3.0);
-    updateThrottle(_lastThrottle);
-  }
-
-  /// Change crossfade sharpness, then reapply.
-  void setCrossfadeRate(double rate) {
-    _crossfadeRate = rate.clamp(0.1, 2.0);
-    updateThrottle(_lastThrottle);
-  }
-
-  // ─── Music API ─────────────────────────────────────
-
-  Future<void> loadMusicAsset(String path)    => _musicPlayer.setAsset(path);
-  Future<void> playMusic()                    => _musicPlayer.play();
-  Future<void> pauseMusic()                   => _musicPlayer.pause();
-  Future<void> setMusicMix(double mix)        => _musicPlayer.setVolume(mix.clamp(0.0, 1.0));
-
-  // ─── Cleanup ──────────────────────────────────────
-
-  Future<void> dispose() async {
-    for (var p in [
-      _startPlayer,
-      _idlePlayer,
-      _gear1Player,
-      _gear2Player,
-      _gear3Player,
-      _cruisePlayer,
-      _cutoffPlayer,
-      _musicPlayer,
-    ]) {
-      await p.dispose();
-    }
-  }
+  Future<void> stopEngine() => _enginePlayer.stop();
+  Future<void> dispose() => _enginePlayer.dispose();
 }

@@ -1,11 +1,11 @@
 // lib/ui/exhaust_studio.dart
 
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_state.dart';
-import '../services/audio_manager.dart';
+import '../providers/sound_bank_provider.dart';
+import '../models/sound_bank.dart';
 import 'app_scaffold.dart';
 
 class ExhaustStudio extends StatefulWidget {
@@ -16,150 +16,230 @@ class ExhaustStudio extends StatefulWidget {
 }
 
 class _ExhaustStudioState extends State<ExhaustStudio> {
-  // only visible in premium
-  final List<String> profiles = ['default', 'sport', 'cruiser'];
-  String selectedProfile = 'default';
-  static const Map<ThrottleSegment, List<int>> _segmentBounds = {
-    ThrottleSegment.start:     [0,    2500],
-    ThrottleSegment.idle:      [2500, 4500],
-    ThrottleSegment.firstGear: [4500, 6500],
-    ThrottleSegment.secondGear:[6500, 8500],
-    ThrottleSegment.thirdGear: [8500, 10500],
-    ThrottleSegment.cruise:    [10500,12500],
-    ThrottleSegment.cutoff:    [12500,14500],
-  };
-  UriAudioSource get _masterSource => AudioSource.asset(
-    'assets/sounds/$selectedProfile/exhaust_all.mp3',
-  );
-  // pitch & master volume always available
-  double pitchSens = 1.0;
-  double volume    = 1.0;
-
-  // preview slider + toggle
-  double previewThrottle = 0.0;
-  bool   isPreviewing    = false;
-
-  AudioManager get audio => context.read<AppState>().audio;
-  bool get isPremium     => context.watch<AppState>().isPremium;
+  String? _selectedCategory;
+  String? _selectedBrand;
+  String? _selectedModel;
+  String? _selectedTrackId;
 
   @override
   void initState() {
     super.initState();
-    // preload segments but don’t start
-    audio.init();
-  }
-
-  void _togglePreview() {
-    if (isPreviewing) {
-      audio.playCutoff();
-    } else {
-      audio.playStart();
-      audio.updateThrottle(previewThrottle);
-    }
-    setState(() => isPreviewing = !isPreviewing);
+    final app = context.read<AppState>();
+    _selectedTrackId = app.selectedLocalTrackId;
   }
 
   @override
   Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final prov = context.watch<SoundBankProvider>();
+
+    // Build category/brand/model lists
+    final categories = prov.banks;
+    final brands = _selectedCategory == null
+        ? <SoundBankBrand>[]
+        : categories.firstWhere((c) => c.id == _selectedCategory!).brands;
+    final models = _selectedBrand == null
+        ? <SoundBankModel>[]
+        : brands.firstWhere((b) => b.id == _selectedBrand!).models;
+
     return AppScaffold(
       title: 'Exhaust Studio',
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1) Profile dropdown (premium only)
-            if (isPremium) ...[
-              Text('Sound Profile', style: Theme.of(context).textTheme.titleMedium),
-              DropdownButton<String>(
-                value: selectedProfile,
-                items: profiles
-                    .map((p) => DropdownMenuItem(value: p, child: Text(p.toUpperCase())))
-                    .toList(),
-                onChanged: (v) async {
-                  if (v == null) return;
-                  setState(() => selectedProfile = v);
-                  await audio.switchProfile(v);
-                },
-              ),
-              const SizedBox(height: 24),
-            ],
+            // 1) Category Dropdown
+            const Text('Select Bike Category', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButton<String>(
+              value: _selectedCategory,
+              hint: const Text('Category'),
+              isExpanded: true,
+              items: categories.map((c) => DropdownMenuItem(
+                value: c.id,
+                child: Text(c.name),
+              )).toList(),
+              onChanged: app.isPremium
+                  ? (value) {
+                setState(() {
+                  _selectedCategory = value;
+                  _selectedBrand = null;
+                  _selectedModel = null;
+                });
+              }
+                  : null,
+            ),
+            const SizedBox(height: 16),
 
-            // 2) Pitch Sensitivity
-            Text('Pitch Sensitivity: ${pitchSens.toStringAsFixed(2)}'),
-            Slider(
-              value: pitchSens,
-              min: 0.1,
-              max: 3.0,
-              divisions: 29,
-              label: pitchSens.toStringAsFixed(2),
-              onChanged: (v) {
-                setState(() => pitchSens = v);
-                audio.setPitchSensitivity(v);
+            // 2) Brand Dropdown
+            const Text('Select Brand', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButton<String>(
+              value: _selectedBrand,
+              hint: const Text('Brand'),
+              isExpanded: true,
+              items: brands.map((b) => DropdownMenuItem(
+                value: b.id,
+                child: Text(b.name),
+              )).toList(),
+              onChanged: app.isPremium && _selectedCategory != null
+                  ? (value) {
+                setState(() {
+                  _selectedBrand = value;
+                  _selectedModel = null;
+                });
+              }
+                  : null,
+            ),
+            const SizedBox(height: 16),
+
+            // 3) Model Dropdown
+            const Text('Select Model', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButton<String>(
+              value: _selectedModel,
+              hint: const Text('Model'),
+              isExpanded: true,
+              items: models.map((m) => DropdownMenuItem(
+                value: m.id,
+                child: Text(m.name),
+              )).toList(),
+              onChanged: app.isPremium && _selectedBrand != null
+                  ? (value) {
+                setState(() {
+                  _selectedModel = value;
+                });
+                final model = models.firstWhere((m) => m.id == value);
+                app.setSelectedBank(
+                  model.id,
+                  localPath: prov.localPathFor(model.id),
+                  masterFileName: model.masterFileName,
+                );
+              }
+                  : null,
+            ),
+            const SizedBox(height: 24),
+
+            // 4) Music Track Dropdown
+            const Text('Select Music Track', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButton<String>(
+              value: app.spotifyAuthenticated ? 'spotify' : _selectedTrackId,
+              isExpanded: true,
+              items: [
+                ...app.defaultTracks.map((t) => DropdownMenuItem(
+                  value: t.id,
+                  child: Text(t.name),
+                )),
+                if (app.spotifyAuthenticated)
+                  const DropdownMenuItem(
+                    value: 'spotify',
+                    child: Text('Spotify Playback'),
+                  ),
+              ],
+              onChanged: (val) {
+                if (val == 'spotify') {
+                  app.authenticateSpotify();
+                  app.setMusicMix(
+                    enabled: true,
+                    engineVol: app.engineVolume,
+                    musicVol: app.musicVolume,
+                  );
+                } else if (val != null) {
+                  setState(() => _selectedTrackId = val);
+                  app.setSelectedLocalTrack(val);
+                }
               },
             ),
             const SizedBox(height: 16),
 
-            // 3) Master Volume
-            Text('Master Volume: ${(volume * 100).toInt()}%'),
-            Slider(
-              value: volume,
-              min: 0.0,
-              max: 1.0,
-              divisions: 100,
-              label: '${(volume * 100).toInt()}%',
-              onChanged: (v) {
-                setState(() => volume = v);
-                audio.setMasterVolume(v);
-              },
+            // 5) Enable Music Switch
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Enable Music'),
+                Switch(
+                  value: app.musicEnabled,
+                  onChanged: (on) => app.setMusicMix(
+                    enabled: on,
+                    engineVol: app.engineVolume,
+                    musicVol: app.musicVolume,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
-            // 4) Preview Throttle slider
-            Text('Preview Throttle: ${previewThrottle.toInt()}%'),
+            // 6) Volume Sliders
+            Text('Engine Volume: ${(app.engineVolume * 100).round()}%'),
             Slider(
-              value: previewThrottle,
+              value: app.engineVolume,
               min: 0,
-              max: 100,
-              divisions: 100,
-              label: '${previewThrottle.toInt()}%',
-              onChanged: (v) {
-                setState(() => previewThrottle = v);
-                if (isPreviewing) {
-                  ThrottleSegment seg;
-                  if (v == 0) seg = ThrottleSegment.idle;
-                  else if (v < 20) seg = ThrottleSegment.firstGear;
-                  else if (v < 40) seg = ThrottleSegment.secondGear;
-                  else if (v < 60) seg = ThrottleSegment.thirdGear;
-                  else if (v < 80) seg = ThrottleSegment.cruise;
-                  else seg = ThrottleSegment.cutoff;
-                  //audio.updateThrottle(v);
-                }
-              },
+              max: 1,
+              divisions: 20,
+              onChanged: app.isPremium
+                  ? (v) => app.setMusicMix(
+                enabled: app.musicEnabled,
+                engineVol: v,
+                musicVol: app.musicVolume,
+              )
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            Text('Music Volume: ${(app.musicVolume * 100).round()}%'),
+            Slider(
+              value: app.musicVolume,
+              min: 0,
+              max: 1,
+              divisions: 20,
+              onChanged: app.isPremium
+                  ? (v) => app.setMusicMix(
+                enabled: app.musicEnabled,
+                engineVol: app.engineVolume,
+                musicVol: v,
+              )
+                  : null,
             ),
             const SizedBox(height: 24),
 
-            // 5) Preview button toggles start/stop
-            ElevatedButton.icon(
-              icon: Icon(isPreviewing ? Icons.stop : Icons.play_arrow),
-              label: Text(isPreviewing ? 'Stop Preview' : 'Start Preview'),
-              onPressed: _togglePreview,
-              style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+            // 7) Ducking Controls
+            Text('Duck Threshold: ${(app.duckThreshold * 100).round()}%'),
+            Slider(
+              value: app.duckThreshold,
+              min: 0,
+              max: 1,
+              divisions: 20,
+              onChanged:
+              app.isPremium ? (v) => app.setDuckingThreshold(v) : null,
             ),
+            const SizedBox(height: 12),
+            Text('Duck Volume Factor: ${(app.duckVolumeFactor * 100).round()}%'),
+            Slider(
+              value: app.duckVolumeFactor,
+              min: 0,
+              max: 1,
+              divisions: 20,
+              onChanged:
+              app.isPremium ? (v) => app.setDuckVolumeFactor(v) : null,
+            ),
+            // const SizedBox(height: 12),
+            // Text('Crossfade Rate: ${(app.crossfadeRate * 100).round()}%'),
+            // Slider(
+            //   value: app.crossfadeRate,
+            //   min: 0,
+            //   max: 1,
+            //   divisions: 20,
+            //   onChanged:
+            //   app.isPremium ? (v) => app.setCrossfadeRate(v) : null,
+            // ),
+            const SizedBox(height: 24),
 
-            const SizedBox(height: 32),
-
-            // 6) Calibration (shared)
+            // 8) Preview Throttle Button
             Center(
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.tune),
-                label: Text(isPremium ? 'Re-Calibrate Throttle' : 'Calibrate Throttle'),
-                onPressed: () async {
-                  final ok = await context.read<AppState>().calibrateThrottle();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(ok ? 'Calibrated!' : 'Calibration Failed')),
-                  );
-                },
+              child: ElevatedButton(
+                onPressed: () => app.audio.updateThrottle(50),
+                child: const Text('Preview Throttle'),
               ),
             ),
           ],
@@ -168,145 +248,3 @@ class _ExhaustStudioState extends State<ExhaustStudio> {
     );
   }
 }
-
-// // lib/ui/exhaust_studio.dart
-//
-// import 'package:flutter/material.dart';
-// import 'package:provider/provider.dart';
-//
-// import '../providers/app_state.dart';
-// import 'app_scaffold.dart';
-//
-// class ExhaustStudio extends StatefulWidget {
-//   const ExhaustStudio({super.key});
-//
-//   @override
-//   _ExhaustStudioState createState() => _ExhaustStudioState();
-// }
-//
-// class _ExhaustStudioState extends State<ExhaustStudio> {
-//   final profiles = ['default', 'sport', 'cruiser'];
-//   String selected    = 'default';
-//   double crossfade   = 1.0;
-//   double pitchSens   = 1.0;
-//   double volume      = 1.0;
-//   double previewThr  = 0.0;
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final appState  = context.watch<AppState>();
-//     final audio     = appState.audio;
-//     final isPremium = appState.isPremium;
-//
-//     return AppScaffold(
-//       title: 'Exhaust Studio',
-//       child: SingleChildScrollView(
-//         padding: const EdgeInsets.all(16),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.stretch,
-//           children: [
-//
-//             // ── Premium-only: Profile selector & Preview ─────────────
-//             if (isPremium) ...[
-//               DropdownButton<String>(
-//                 value: selected,
-//                 items: profiles
-//                     .map((p) => DropdownMenuItem(
-//                   value: p,
-//                   child: Text(p.toUpperCase()),
-//                 ))
-//                     .toList(),
-//                 onChanged: (p) async {
-//                   if (p == null) return;
-//                   setState(() => selected = p);
-//                   // only one argument:
-//                   await audio.switchProfile(p);
-//                 },
-//               ),
-//               const SizedBox(height: 16),
-//
-//               Text('Preview Throttle: ${previewThr.toInt()}%'),
-//               Slider(
-//                 value: previewThr,
-//                 min: 0,
-//                 max: 100,
-//                 divisions: 100,
-//                 label: '${previewThr.toInt()}%',
-//                 onChanged: (v) {
-//                   setState(() => previewThr = v);
-//                   audio.updateThrottle(v);
-//                 },
-//               ),
-//               ElevatedButton.icon(
-//                 icon: const Icon(Icons.play_arrow),
-//                 label: const Text('Preview'),
-//                 onPressed: () {
-//                   audio.playStart();
-//                   audio.updateThrottle(previewThr);
-//                 },
-//               ),
-//               const Divider(height: 32),
-//             ],
-//
-//             // ── Shared Sliders ───────────────────────────────────────
-//             Text('Crossfade Rate: ${crossfade.toStringAsFixed(2)}'),
-//             Slider(
-//               value: crossfade,
-//               min: 0.1,
-//               max: 2.0,
-//               divisions: 19,
-//               label: crossfade.toStringAsFixed(2),
-//               onChanged: (v) {
-//                 setState(() => crossfade = v);
-//                 audio.setCrossfadeRate(v);
-//               },
-//             ),
-//             const SizedBox(height: 16),
-//
-//             Text('Pitch Sensitivity: ${pitchSens.toStringAsFixed(2)}'),
-//             Slider(
-//               value: pitchSens,
-//               min: 0.1,
-//               max: 3.0,
-//               divisions: 29,
-//               label: pitchSens.toStringAsFixed(2),
-//               onChanged: (v) {
-//                 setState(() => pitchSens = v);
-//                 audio.setPitchSensitivity(v);
-//               },
-//             ),
-//             const SizedBox(height: 16),
-//
-//             Text('Master Volume: ${(volume * 100).toInt()}%'),
-//             Slider(
-//               value: volume,
-//               min: 0.0,
-//               max: 1.0,
-//               divisions: 100,
-//               label: '${(volume * 100).toInt()}%',
-//               onChanged: (v) {
-//                 setState(() => volume = v);
-//                 audio.setMasterVolume(v);
-//               },
-//             ),
-//             const SizedBox(height: 32),
-//
-//             // ── Calibration Button ───────────────────────────────────
-//             Center(
-//               child: ElevatedButton.icon(
-//                 icon: const Icon(Icons.tune),
-//                 label: Text(isPremium ? 'Re-Calibrate Throttle' : 'Calibrate Throttle'),
-//                 onPressed: () async {
-//                   final ok = await appState.calibrateThrottle();
-//                   ScaffoldMessenger.of(context).showSnackBar(
-//                     SnackBar(content: Text(ok ? 'Calibrated!' : 'Calibration failed')),
-//                   );
-//                 },
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }

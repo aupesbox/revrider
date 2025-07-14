@@ -2,52 +2,71 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:archive/archive_io.dart';
-import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
+
 import '../models/sound_bank.dart';
 
 class SoundBankService {
-  final Dio _dio = Dio();
-
-  /// Fetch JSON manifest from your server:
-  /// [
-  ///   { "id":"cruiser_power", "name":"Cruiser – Power", "zipUrl":"https://..." },
-  ///   ...
-  /// ]
-  Future<List<SoundBank>> fetchAvailableBanks() async {
-    final resp = await _dio.get('https://your.cdn.com/banks/manifest.json');
-    return (resp.data as List).map((m) => SoundBank(
-      id:      m['id'],
-      name:    m['name'],
-      zipUrl:  m['zipUrl'],
-    )).toList();
+  /// Downloads a ZIP for [bankId] and unpacks it into a local directory.
+  /// Returns the path to the directory, or null on failure.
+  /// Fetches the JSON catalog of categories → brands → models
+  Future<List<SoundBankCategory>> fetchCatalog() async {
+    final jsonStr = await rootBundle.loadString('assets/catalog.json');
+    final data = jsonDecode(jsonStr) as List<dynamic>;
+    return data
+        .map((j) => SoundBankCategory.fromJson(j as Map<String, dynamic>))
+        .toList();
   }
 
-  /// Download & unzip a bank.zip into app documents dir.
-  Future<SoundBank> downloadBank(SoundBank bank) async {
-    final docDir = await getApplicationDocumentsDirectory();
-    final zipPath = '${docDir.path}/${bank.id}.zip';
-    final outDir = '${docDir.path}/${bank.id}';
-
-    // Download .zip
-    await _dio.download(bank.zipUrl, zipPath);
-
-    // Unpack
-    final bytes = File(zipPath).readAsBytesSync();
-    final archive = ZipDecoder().decodeBytes(bytes);
-    for (final file in archive) {
-      final outFile = File('$outDir/${file.name}');
-      if (file.isFile) {
-        outFile.createSync(recursive: true);
-        outFile.writeAsBytesSync(file.content as List<int>);
+  // Future<List<SoundBankCategory>> fetchCatalog() async {
+  //   const url = 'asset://assets/catalog.json';
+  //   final response = await http.get(Uri.parse(url));
+  //
+  //   if (response.statusCode != 200) {
+  //     throw Exception('Failed to load sound bank catalog');
+  //   }
+  //
+  //   final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+  //   return data
+  //       .map((json) => SoundBankCategory.fromJson(json as Map<String, dynamic>))
+  //       .toList();
+  // }
+  Future<String?> downloadAndUnzip(String bankId, String zipUrl) async {
+    try {
+      List<int> bytes;
+      if (zipUrl.startsWith('asset://')) {
+        final assetPath = zipUrl.replaceFirst('asset://', '');
+        bytes = (await rootBundle.load(assetPath)).buffer.asUint8List();
+      } else {
+        final res = await http.get(Uri.parse(zipUrl));
+        if (res.statusCode != 200) return null;
+        bytes = res.bodyBytes;
       }
-    }
-    bank.downloaded = true;
-    bank.localPath  = outDir;
+      final archive = ZipDecoder().decodeBytes(bytes);
+      // 2) Get app documents dir and create a folder
+      final baseDir = await getApplicationDocumentsDirectory();
+      final outDir = Directory('${baseDir.path}/banks/$bankId');
+      if (!outDir.existsSync()) outDir.createSync(recursive: true);
 
-    // Optionally delete the zip
-    File(zipPath).deleteSync();
-    return bank;
+      // 3) Decode & extract
+      //final bytes = res.bodyBytes;
+      //final archive = ZipDecoder().decodeBytes(bytes);
+      for (final file in archive) {
+        final filePath = '${outDir.path}/${file.name}';
+        if (file.isFile) {
+          File(filePath)
+            ..createSync(recursive: true)
+            ..writeAsBytesSync(file.content as List<int>);
+        }
+      }
+
+      return outDir.path;
+    } catch (e) {
+      print('Download/unzip failed for $bankId: $e');
+      return null;
+    }
   }
 }
