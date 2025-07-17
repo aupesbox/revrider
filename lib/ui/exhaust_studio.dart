@@ -9,7 +9,7 @@ import '../models/sound_bank.dart';
 import 'app_scaffold.dart';
 
 class ExhaustStudio extends StatefulWidget {
-  const ExhaustStudio({Key? key}) : super(key: key);
+  const ExhaustStudio({super.key});
 
   @override
   _ExhaustStudioState createState() => _ExhaustStudioState();
@@ -223,22 +223,30 @@ class _ExhaustStudioState extends State<ExhaustStudio> {
               onChanged:
               app.isPremium ? (v) => app.setDuckVolumeFactor(v) : null,
             ),
-            // const SizedBox(height: 12),
-            // Text('Crossfade Rate: ${(app.crossfadeRate * 100).round()}%'),
+            const SizedBox(height: 12),
+            Text('Crossfade Rate: ${(app.crossfadeRate * 100).round()}%'),
             // Slider(
             //   value: app.crossfadeRate,
             //   min: 0,
             //   max: 1,
             //   divisions: 20,
-            //   onChanged:
-            //   app.isPremium ? (v) => app.setCrossfadeRate(v) : null,
+            //   //onChanged:
+            //   //app.isPremium ? (v) => app.setCrossfadeRate(v) : null,
             // ),
             const SizedBox(height: 24),
 
             // 8) Preview Throttle Button
             Center(
               child: ElevatedButton(
-                onPressed: () => app.audio.updateThrottle(50),
+                onPressed: () async {
+                  app.audio.playStart();
+                  // // Ensure the default bank+file are loaded first:
+                  // await context.read<AppState>().audio.loadBank('default');
+                  // // Give the engine a moment to bind the source:
+                  // await Future.delayed(const Duration(milliseconds: 100));
+                  // // Then kick off throttle=50%
+                  // await context.read<AppState>().audio.updateThrottle(50);
+                },
                 child: const Text('Preview Throttle'),
               ),
             ),

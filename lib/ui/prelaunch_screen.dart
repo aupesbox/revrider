@@ -8,7 +8,7 @@ import 'splash_screen.dart';
 
 /// Screen shown on app start to choose Basic or Premium testing mode.
 class PreLaunchScreen extends StatelessWidget {
-  const PreLaunchScreen({Key? key}) : super(key: key);
+  const PreLaunchScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

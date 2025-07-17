@@ -13,10 +13,10 @@ class AppScaffold extends StatelessWidget {
   final String title;
 
   const AppScaffold({
-    Key? key,
+    super.key,
     required this.child,
     required this.title,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

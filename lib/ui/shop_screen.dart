@@ -5,10 +5,9 @@ import 'package:provider/provider.dart';
 
 import '../ui/app_scaffold.dart';
 import '../providers/sound_bank_provider.dart';
-import '../models/sound_bank.dart';
 
 class ShopScreen extends StatelessWidget {
-  const ShopScreen({Key? key}) : super(key: key);
+  const ShopScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

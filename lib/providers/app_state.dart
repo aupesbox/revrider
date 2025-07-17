@@ -3,12 +3,10 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:revrider/providers/sound_bank_provider.dart';
 
 import '../services/ble_manager.dart';
 import '../services/audio_manager.dart';
 import '../services/spotify_service.dart';
-import '../models/sound_bank.dart';
 
 /// Represents a default local, royalty-free music track.
 class LocalTrack {
@@ -22,15 +20,14 @@ class LocalTrack {
 class AppState extends ChangeNotifier {
   // at top of AppState:
   String selectedBankId = 'default';
-  String? _masterFileName = 'exhaust_all.mp3';
+  String? _masterFileName = 'exhaust.mp3';
   String? _localBankPath;
 
   AppState(this._ble) {
     _init();
     // Initialize audio and default settings
-    audio.loadBank(selectedBankId, masterFileName: '');
+    audio.loadBank(selectedBankId, masterFileName: 'exhaust.mp3');
     //audio.setEngineVolume();
-
     // Load default local music
     loadLocalMusic();
   }
@@ -167,15 +164,23 @@ class AppState extends ChangeNotifier {
 
   // === Initialization ===
   void _init() {
-    _ble.connectionStateStream.listen((status) {
-      _bleStatus = status;
-      notifyListeners();
-    });
-    _ble.throttleStream.listen((angle) {
+      _ble.connectionStateStream.listen((status) {
+        _bleStatus = status;
+        if (status == BleConnectionStatus.connected) {
+          audio.playStart();      // <-- This will load “start” then idle
+        } else if (status == BleConnectionStatus.disconnected) {
+          audio.playCutoff();
+          audio.stopEngine();
+
+        }
+        notifyListeners();
+      });
+   _ble.throttleStream.listen((angle) {
       latestAngle = angle;
       audio.updateThrottle(angle);
       notifyListeners();
     });
+
   }
 
   @override

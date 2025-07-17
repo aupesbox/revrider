@@ -45,8 +45,11 @@ dependencies:
 
   # Cupertino icons
   cupertino_icons: ^1.0.8
+  sleek_circular_slider: ^2.1.0
 
 
+  http: any
+  path_provider: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -63,7 +66,7 @@ flutter:
 
   # Sound assets (uncomment and add more profiles as you create them)
   assets:
-    - assets/sounds/default/exhaust_all.mp3
+    - assets/sounds/default/exhaust.mp3
     - assets/music/demo_song.mp3
     - assets/lottie/splash.json
     - assets/lottie/splash.webm

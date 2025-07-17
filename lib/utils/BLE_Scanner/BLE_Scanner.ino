@@ -1,58 +1,51 @@
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include <TFT_eSPI.h>
-#include <SPI.h>
 
-// --- UUID Definitions (must match your Flutter app) ---
+// ── BLE UUIDs ────────────────────────────────────────────────────────
 #define SERVICE_UUID        "12345678-1234-5678-1234-56789abcdef0"
 #define CHAR_THROTTLE_UUID  "12345678-1234-5678-1234-56789abcdef1"
 #define CHAR_CALIBRATE_UUID "12345678-1234-5678-1234-56789abcdef2"
 
-// Create display instance
-TFT_eSPI tft = TFT_eSPI();
+// ── Hardware Objects ──────────────────────────────────────────────────
+TFT_eSPI        tft = TFT_eSPI();
+Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 
-// BLE Characteristic pointers
+// ── BLE Globals ──────────────────────────────────────────────────────
 BLECharacteristic* throttleChar = nullptr;
 BLECharacteristic* calibChar    = nullptr;
 
-// Connection flag
-volatile bool deviceConnected = false;
-// Calibration flag
 volatile bool needCalibration = false;
+bool deviceConnected          = false;
+bool oldDeviceConnected       = false;
+float zeroOffset              = 0.0;
 
-// Server callbacks to track connection status
-class ServerCallbacks : public BLEServerCallbacks {
-  void onConnect(BLEServer* pServer) override {
-    deviceConnected = true;
-    // Display 'Connected' message
-    tft.fillScreen(TFT_BLACK);
-    tft.setTextSize(2);
-    tft.setCursor(0, 0);
-    tft.print("Connected");
-  }
-  void onDisconnect(BLEServer* pServer) override {
-    deviceConnected = false;
-    // Display 'Disconnected'
-    tft.fillScreen(TFT_BLACK);
-    tft.setTextSize(2);
-    tft.setCursor(0, 0);
-    tft.print("Disconnected");
-  }
+// ── Read heading (0–360°) from BNO055 ─────────────────────────────────
+float readHeading() {
+  sensors_event_t evt;
+  bno.getEvent(&evt);
+  // evt.orientation.x goes from 0→360 in Adafruit library
+  return evt.orientation.x;
+}
+
+// ── BLE Server callbacks ───────────────────────────────────────────────
+class ServerCB : public BLEServerCallbacks {
+  void onConnect(BLEServer* p)    override { deviceConnected = true; }
+  void onDisconnect(BLEServer* p) override { deviceConnected = false; }
 };
 
-// Callback to handle writes to calibration characteristic
-class CalibCallbacks : public BLECharacteristicCallbacks {
-  void onWrite(BLECharacteristic* pChar) override {
-    String data = pChar->getValue();
-    if (data.length() > 0 && data[0] == 0x01) {
+// ── Write-to-zero callback ─────────────────────────────────────────────
+class CalibCB : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* chr) override {
+    String v = chr->getValue();
+    if (v.length() && v[0] == 0x01) {
+      zeroOffset     = readHeading();
       needCalibration = true;
-      // Provide immediate on-screen feedback
-      tft.fillScreen(TFT_BLACK);
-      tft.setTextSize(2);
-      tft.setCursor(0, 40);
-      tft.print("Calibrated!");
     }
   }
 };
@@ -61,69 +54,105 @@ void setup() {
   Serial.begin(115200);
   delay(500);
 
-  // Initialize the display
+  // —— TFT Init ——  
   tft.init();
   tft.setRotation(1);
   tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.setTextSize(2);
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK);
   tft.setCursor(0, 0);
-  tft.println("Starting BLE");
+  tft.print("Advertising...");
 
-  // Initialize BLE peripheral
+  // —— BNO055 Init ——  
+  if (!bno.begin()) {
+    Serial.println("BNO055 not found!");
+    while (1) delay(10);
+  }
+  bno.setExtCrystalUse(true);
+
+  // —— BLE Init ——  
   BLEDevice::init("aupesbox");
   BLEServer* server = BLEDevice::createServer();
-  server->setCallbacks(new ServerCallbacks());
-  BLEService* service = server->createService(SERVICE_UUID);
+  server->setCallbacks(new ServerCB());
 
-  // Throttle % (Notify)
-  throttleChar = service->createCharacteristic(
+  BLEService* svc = server->createService(SERVICE_UUID);
+
+  throttleChar = svc->createCharacteristic(
     CHAR_THROTTLE_UUID,
     BLECharacteristic::PROPERTY_NOTIFY
   );
   throttleChar->addDescriptor(new BLE2902());
 
-  // Calibration (Write)
-  calibChar = service->createCharacteristic(
+  calibChar = svc->createCharacteristic(
     CHAR_CALIBRATE_UUID,
     BLECharacteristic::PROPERTY_WRITE
   );
-  calibChar->setCallbacks(new CalibCallbacks());
+  calibChar->setCallbacks(new CalibCB());
 
-  service->start();
-
-  // Start advertising
+  svc->start();
   BLEAdvertising* adv = server->getAdvertising();
   adv->addServiceUUID(SERVICE_UUID);
   adv->setScanResponse(true);
+  adv->setMinPreferred(0x06);
+  adv->setMinPreferred(0x12);
   adv->start();
-
-  Serial.println("aupesbox peripheral up and advertising");
+  Serial.println("aupesbox advertising started");
 }
 
 void loop() {
-  // === Simulate throttle angle (0–255) ===
-  static uint8_t angle = 0;
-  static int8_t dir = 1;
-  //angle += dir;
-  // if (angle == 0 || angle == 255) dir = -dir;
-
-  // === Notify central ===
-  if (deviceConnected) {
-    throttleChar->setValue(&angle, 1);
-    throttleChar->notify();
-    // Update on-screen throttle display
-    tft.fillRect(0, 80, 240, 40, TFT_BLACK);  // clear area
-    tft.setTextSize(3);
-    tft.setCursor(0, 80);
-    tft.printf("Thr: %d%%", angle);
-    //angle -= dir;// remove this after imu
+  // —— Update display on connect/disconnect ——  
+  if (deviceConnected != oldDeviceConnected) {
+    oldDeviceConnected = deviceConnected;
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(0, 0);
+    tft.setTextColor(deviceConnected ? TFT_GREEN : TFT_YELLOW, TFT_BLACK);
+    tft.print(deviceConnected ? "Connected" : "Advertising...");
   }
 
-  // === Handle calibration flag ===
+  if (deviceConnected) {
+    // 1) Read & zero‐offset heading
+    float rawH = readHeading();
+    float adjH = rawH - zeroOffset;
+    if (adjH < 0) adjH += 360.0;
+
+    // 2) Compute raw 0–255 for BLE
+    uint8_t rawVal = uint8_t(constrain((adjH / 360.0) * 255.0, 0.0, 255.0));
+
+    // 3) Notify BLE central
+    throttleChar->setValue(&rawVal, 1);
+    throttleChar->notify();
+
+    // 4) Compute and display percent 0–100
+    int pct = int((adjH / 360.0) * 100.0 + 0.5);
+    tft.setCursor(0, 32);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.printf("Thr: %3d%%", pct);
+
+    // 5) Show Heading, Roll, Pitch
+    sensors_event_t evt;
+    bno.getEvent(&evt);
+    float roll  = evt.orientation.y;  // –180→180
+    float pitch = evt.orientation.z;  // –90→90
+
+    tft.setCursor(0, 56);
+    tft.printf("H:%3.0f R:%3.0f P:%3.0f", rawH, roll, pitch);
+
+    // 6) Show calibration status
+    uint8_t sys, gyr, acc, mag;
+    bno.getCalibration(&sys, &gyr, &acc, &mag);
+    tft.setCursor(0, 80);
+    tft.printf("Cal S%d G%d A%d M%d", sys, gyr, acc, mag);
+  }
+
+  // Show “Zero set!” briefly on calibration
   if (needCalibration) {
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(0, 0);
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.print("Zero set!");
+    delay(800);
     needCalibration = false;
   }
 
-  delay(50);  // ~20 Hz update rate
+  delay(100);  // ~10 Hz update
 }

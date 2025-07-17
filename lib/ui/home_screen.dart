@@ -13,7 +13,7 @@ import 'twin_throttle_gauge.dart';
 
 /// The main Home screen with swipeable gauges, connection controls, and status info.
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

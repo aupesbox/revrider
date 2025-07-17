@@ -13,7 +13,7 @@ class SoundBankModel {
     required this.id,
     required this.name,
     required this.purchased,
-    this.masterFileName = 'exhaust_all.mp3',
+    this.masterFileName = 'exhaust.mp3',
     required this.zipUrl,
   });
 
@@ -22,7 +22,7 @@ class SoundBankModel {
       id: json['id'] as String,
       name: json['name'] as String,
       purchased: json['purchased'] as bool? ?? false,
-      masterFileName: json['masterFileName'] as String? ?? 'exhaust_all.mp3',
+      masterFileName: json['masterFileName'] as String? ?? 'exhaust.mp3',
       zipUrl: json['zipUrl'] as String,
     );
   }
