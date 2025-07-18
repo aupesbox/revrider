@@ -7,7 +7,8 @@ class PurchaseProvider extends ChangeNotifier {
   bool _isPremium   = false;
   bool _devOverride = false;   // allow QA / dev to override
   Offerings? _offerings;
-
+  CustomerInfo? _customerInfo;
+  CustomerInfo? get customerInfo => _customerInfo;
   /// Tracks all active entitlement IDs
   final Set<String> _purchasedItems = {};
 

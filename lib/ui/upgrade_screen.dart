@@ -61,7 +61,7 @@ class UpgradeScreen extends StatelessWidget {
             imageAsset: 'assets/images/app_only.png',
             onBuy: () {
               // TODO: wire real IAP
-              appState.setPremium(true);
+              //appState.setPremium(true);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('App-Only Premium Activated')),
               );
@@ -74,7 +74,7 @@ class UpgradeScreen extends StatelessWidget {
             imageAsset: 'assets/images/app_device.png',
             onBuy: () {
               // TODO: wire real IAP
-              appState.setPremium(true);
+              //appState.setPremium(true);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Bundle Purchased')),
               );

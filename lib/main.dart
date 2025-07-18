@@ -1,4 +1,83 @@
-// lib/main.dart
+// // lib/main.dart
+// // lib/main.dart
+//
+// import 'package:flutter/material.dart';
+// import 'package:provider/provider.dart';
+//
+// import 'utils/themes.dart';
+// import 'providers/theme_provider.dart';
+// import 'providers/purchase_provider.dart';
+// import 'providers/sound_bank_provider.dart';
+// import 'providers/app_state.dart';
+// import 'services/ble_manager.dart';
+// import 'services/audio_manager.dart';
+// import 'services/sound_bank_service.dart';
+// import 'ui/home_screen.dart';
+// import 'ui/exhaust_studio.dart';
+// import 'ui/shop_screen.dart';
+// import 'ui/profile_screen.dart';
+// import 'ui/settings_screen.dart';
+//
+// Future<void> main() async {
+//   WidgetsFlutterBinding.ensureInitialized();
+//
+//   // Load saved theme
+//   final themeProvider = ThemeProvider();
+//   await themeProvider.load();
+//
+//   runApp(
+//     MultiProvider(
+//       providers: [
+//         // Theme
+//         ChangeNotifierProvider<ThemeProvider>.value(value: themeProvider),
+//         // Purchases
+//         ChangeNotifierProvider<PurchaseProvider>(create: (_) => PurchaseProvider()),
+//         // Sound bank service & provider
+//         Provider<SoundBankService>(create: (_) => SoundBankService()),
+//         ChangeNotifierProvider<SoundBankProvider>(
+//           create: (ctx) => SoundBankProvider(
+//             ctx.read<SoundBankService>(),
+//             ctx.read<PurchaseProvider>(),
+//           ),
+//         ),
+//         // BLE & App State
+//         Provider<BleManager>(create: (_) => BleManager()),
+//         ChangeNotifierProvider<AppState>(
+//           create: (ctx) => AppState(ctx.read<BleManager>()),
+//         ),
+//       ],
+//       child: const RevRiderApp(),
+//     ),
+//   );
+// }
+//
+// class RevRiderApp extends StatelessWidget {
+//   const RevRiderApp({Key? key}) : super(key: key);
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final themeMode = context.watch<ThemeProvider>().mode;
+//
+//     return MaterialApp(
+//       title: 'RevRider',
+//       debugShowCheckedModeBanner: false,
+//       theme: ThemeData.dark(),
+//       // theme: AppThemes.lightTheme,
+//       // darkTheme: AppThemes.darkTheme,
+//       themeMode: themeMode,
+//       initialRoute: '/',
+//       routes: {
+//         '/':       (_) => const HomeScreen(),
+//         '/studio': (_) => const ExhaustStudio(),
+//         '/shop':   (_) => const ShopScreen(),
+//         '/profile':(_) => const ProfileScreen(),
+//         '/settings':(_) => const SettingsScreen(),
+//       },
+//     );
+//   }
+// }
+
+
 // lib/main.dart
 
 import 'dart:async';
@@ -225,13 +304,13 @@ class AudioManager {
   String _bank = 'default';
   String _file = 'exhaust.mp3';
   static const _bounds = {
-    ThrottleSegment.start:  [0,    9900],
-    ThrottleSegment.idle:   [10000, 19900],
-    ThrottleSegment.gear1:  [20000, 27900],
-    ThrottleSegment.gear2:  [28000, 35000],
-    ThrottleSegment.gear3:  [40000,45800],
-    ThrottleSegment.cruise: [45900,55900],
-    ThrottleSegment.cutoff:[56000,60000],
+    ThrottleSegment.start:  [0,    2500],
+    ThrottleSegment.idle:   [2500, 4500],
+    ThrottleSegment.gear1:  [4500, 6500],
+    ThrottleSegment.gear2:  [6500, 8500],
+    ThrottleSegment.gear3:  [8500,10500],
+    ThrottleSegment.cruise: [10500,12500],
+    ThrottleSegment.cutoff:[12500,14500],
   };
 
   ThrottleSegment? _currentSeg;
@@ -292,93 +371,4 @@ class AudioManager {
   Future<void> dispose() => _player.dispose();
 }
 
-// // lib/main.dart
-//
-// import 'package:flutter/material.dart';
-// import 'package:provider/provider.dart';
-// import 'package:purchases_flutter/purchases_flutter.dart';
-//
-// import 'utils/themes.dart';
-// import 'providers/theme_provider.dart';
-// import 'providers/purchase_provider.dart';
-// import 'providers/sound_bank_provider.dart';
-// import 'services/sound_bank_service.dart';
-// import 'services/ble_manager.dart';
-// import 'providers/app_state.dart';
-// import 'ui/home_screen.dart';
-// import 'ui/prelaunch_screen.dart';
-//
-// Future<void> main() async {
-//   WidgetsFlutterBinding.ensureInitialized();
-//
-//   // 1️⃣ Initialize RevenueCat
-//   await Purchases.setDebugLogsEnabled(true);
-//   await Purchases.configure(
-//     PurchasesConfiguration('public_sdk_key_here'),
-//   );
-//
-//   // 2️⃣ Load saved theme preference
-//   final themeProvider = ThemeProvider();
-//   await themeProvider.load();
-//
-//   // 3️⃣ Run app with providers
-//   runApp(
-//     MultiProvider(
-//       providers: [
-//         // Theme provider first
-//         ChangeNotifierProvider<ThemeProvider>.value(
-//           value: themeProvider,
-//         ),
-//         // In-app purchases
-//         ChangeNotifierProvider<PurchaseProvider>(
-//           create: (_) => PurchaseProvider(),
-//         ),
-//         // Sound bank service
-//         Provider<SoundBankService>(
-//           create: (_) => SoundBankService(),
-//         ),
-//         // Sound bank provider (depends on SoundBankService & PurchaseProvider)
-//         ChangeNotifierProvider<SoundBankProvider>(
-//           create: (context) => SoundBankProvider(
-//             context.read<SoundBankService>(),
-//             context.read<PurchaseProvider>(),
-//           ),
-//         ),
-//         // BLE manager
-//         Provider<BleManager>(
-//           create: (_) => BleManager(),
-//           dispose: (_, manager) => manager.dispose(),
-//         ),
-//         // App state (depends on BleManager)
-//         ChangeNotifierProvider<AppState>(
-//           create: (context) => AppState(
-//             context.read<BleManager>(),
-//           ),
-//         ),
-//       ],
-//       child: const RevRiderApp(),
-//     ),
-//   );
-// }
-//
-// class RevRiderApp extends StatelessWidget {
-//   const RevRiderApp({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final themeMode = context.watch<ThemeProvider>().mode;
-//
-//     return MaterialApp(
-//       title: 'RevRider',
-//       debugShowCheckedModeBanner: false,
-//       theme: AppThemes.lightTheme,
-//       darkTheme: AppThemes.darkTheme,
-//       themeMode: themeMode,
-//       //home: const SplashScreen(),
-//       home: const PreLaunchScreen(),
-//       routes: {
-//         '/home': (_) => const HomeScreen(),
-//       },
-//     );
-//   }
-// }
+
