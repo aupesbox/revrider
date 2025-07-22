@@ -7,7 +7,7 @@ import 'app_scaffold.dart';
 
 /// Exhaust Studio screen: calibration, music mix, and audio preview controls.
 class ExhaustStudio extends StatelessWidget {
-  const ExhaustStudio({Key? key}) : super(key: key);
+  const ExhaustStudio({super.key});
 
   @override
   Widget build(BuildContext context) {

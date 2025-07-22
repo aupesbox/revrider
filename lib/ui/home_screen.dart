@@ -13,12 +13,13 @@ import 'twin_throttle_gauge.dart';
 
 /// The main home screen showing BLE connect controls, swipeable gauges, and status info.
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     final status = appState.connectionStatus;
+    final trackText = appState.currentTrack ?? (appState.spotifyAuthenticated ? 'Loading…' : 'Engine');
 
     const statusLabels = {
       BleConnectionStatus.disconnected: 'Disconnected',
@@ -103,8 +104,19 @@ class HomeScreen extends StatelessWidget {
                   children: [
                     Text('Battery: ${appState.batteryLevel}%'),
                     Text('Status: $statusLabel'),
+                    Column(
+                      children: [
+                        Icon(
+                          appState.spotifyAuthenticated ? Icons.music_note : Icons.engineering,
+                          color: appState.spotifyAuthenticated ? Colors.purpleAccent : Colors.white,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(trackText, style: Theme.of(context).textTheme.bodySmall),
+                      ],
+                    ),
                   ],
                 ),
+
               ),
             ),
           ),

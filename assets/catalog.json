@@ -11,14 +11,14 @@
             "id": "model1",
             "name": "Model 1",
             "purchased": true,
-            "masterFileName": "exhaust_all.mp3",
+            "masterFileName": "exhaust.mp3",
             "zipUrl": "asset://assets/zips/model1.zip"
           },
           {
             "id": "model2",
             "name": "Model 2",
             "purchased": false,
-            "masterFileName": "exhaust_all.mp3",
+            "masterFileName": "exhaust.mp3",
             "zipUrl": "asset://assets/zips/model1.zip"
           }
         ]

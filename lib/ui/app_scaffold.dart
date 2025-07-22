@@ -7,10 +7,10 @@ class AppScaffold extends StatelessWidget {
   final Widget child;
 
   const AppScaffold({
-    Key? key,
+    super.key,
     required this.title,
     required this.child,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +24,7 @@ class AppScaffold extends StatelessWidget {
           children: [
             DrawerHeader(
               decoration: BoxDecoration(color: Theme.of(context).primaryColor),
-              child: Text(
+              child: const Text(
                 'RevRider',
                 style: TextStyle(color: Colors.white, fontSize: 24),
               ),

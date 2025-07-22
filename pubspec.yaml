@@ -32,12 +32,9 @@ dependencies:
   # QR code activation
   #mobile_scanner: ^2.0.0
 
-
-
   # Firebase (for auth, analytics)
   firebase_core: ^2.15.1
   firebase_auth: ^4.4.0
-
   shared_preferences: ^2.0.15
 
   # In-app purchases (RevenueCat)
@@ -46,10 +43,9 @@ dependencies:
   # Cupertino icons
   cupertino_icons: ^1.0.8
   sleek_circular_slider: ^2.1.0
-
-
   http: any
   path_provider: any
+  audio_session: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -13,27 +13,28 @@ class SoundBankService {
   /// Downloads a ZIP for [bankId] and unpacks it into a local directory.
   /// Returns the path to the directory, or null on failure.
   /// Fetches the JSON catalog of categories → brands → models
+
+  // Future<List<SoundBankCategory>> fetchCatalog() async {
+  //   final jsonStr = await rootBundle.loadString('assets/catalog.json');
+  //   final data = jsonDecode(jsonStr) as List<dynamic>;
+  //   return data
+  //       .map((j) => SoundBankCategory.fromJson(j as Map<String, dynamic>))
+  //       .toList();
+  // }
+
   Future<List<SoundBankCategory>> fetchCatalog() async {
-    final jsonStr = await rootBundle.loadString('assets/catalog.json');
-    final data = jsonDecode(jsonStr) as List<dynamic>;
+    const url = 'https://www.aupesbox.com/catalog.json';
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode != 200) {
+      throw Exception('Catalog load failed (${response.statusCode})');
+    }
+    final List<dynamic> data = jsonDecode(response.body);
     return data
         .map((j) => SoundBankCategory.fromJson(j as Map<String, dynamic>))
         .toList();
   }
 
-  // Future<List<SoundBankCategory>> fetchCatalog() async {
-  //   const url = 'asset://assets/catalog.json';
-  //   final response = await http.get(Uri.parse(url));
-  //
-  //   if (response.statusCode != 200) {
-  //     throw Exception('Failed to load sound bank catalog');
-  //   }
-  //
-  //   final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
-  //   return data
-  //       .map((json) => SoundBankCategory.fromJson(json as Map<String, dynamic>))
-  //       .toList();
-  // }
+
   Future<String?> downloadAndUnzip(String bankId, String zipUrl) async {
     try {
       List<int> bytes;

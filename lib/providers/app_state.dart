@@ -34,7 +34,7 @@ class AppState extends ChangeNotifier {
   AppState(this._ble)
       : audio = AudioManager() {
     // Preload default exhaust bank
-    audio.loadBank('default', masterFileName: 'exhaust_all.mp3');
+    audio.loadBank('default', masterFileName: 'exhaust.mp3');
 
     // BLE connect/disconnect
     _ble.connectionStateStream.listen((status) {
@@ -193,7 +193,7 @@ class AppState extends ChangeNotifier {
 //
 //   AppState(this._ble) : audio = AudioManager() {
 //     // Preload default exhaust bank
-//     audio.loadBank('default', masterFileName: 'exhaust_all.mp3');
+//     audio.loadBank('default', masterFileName: 'exhaust.mp3');
 //
 //     // BLE connection updates
 //     _ble.connectionStateStream.listen((status) {
@@ -333,7 +333,7 @@ class AppState extends ChangeNotifier {
 // //   AppState(this._ble) {
 // //     _init();
 // //     // Preload default exhaust bank
-// //     audio.loadBank('default', masterFileName: 'exhaust_all.mp3');
+// //     audio.loadBank('default', masterFileName: 'exhaust.mp3');
 // //   }
 // //
 // //   void _init() {
