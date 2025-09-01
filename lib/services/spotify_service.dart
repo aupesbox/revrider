@@ -18,25 +18,40 @@ class SpotifyService {
   bool _isSubscribed = false;
 
   /// Authenticate and start listening to player state
+  // lib/services/spotify_service.dart
+
   Future<bool> authenticate({
     required String clientId,
     required String redirectUrl,
   }) async {
     try {
+      // Step 1: Request access token via OAuth
+      final token = await SpotifySdk.getAccessToken(
+        clientId: clientId,
+        redirectUrl: redirectUrl,
+        scope: 'app-remote-control,user-modify-playback-state,user-read-playback-state',
+      );
+
+      debugPrint('✅ Spotify access token received: $token');
+
+      // Step 2: Connect to Spotify Remote
       final connected = await SpotifySdk.connectToSpotifyRemote(
         clientId: clientId,
         redirectUrl: redirectUrl,
       );
+
       if (connected && !_isSubscribed) {
         _subscribeToPlayerState();
         _isSubscribed = true;
       }
+
       return connected;
     } catch (e) {
-      debugPrint('Spotify auth error: $e');
+      debugPrint('❌ Spotify auth error: $e');
       return false;
     }
   }
+
 
   /// Play a Spotify URI
   Future<void> play(String uri) async {
@@ -55,6 +70,30 @@ class SpotifyService {
       debugPrint('Spotify pause error: $e');
     }
   }
+  Future<void> skipPrevious() async {
+    try {
+      await SpotifySdk.skipPrevious();
+    } catch (e) {
+      debugPrint("Spotify skipPrevious error: $e");
+    }
+  }
+
+  Future<void> resume() async {
+    try {
+      await SpotifySdk.resume();
+    } catch (e) {
+      debugPrint("Spotify resume error: $e");
+    }
+  }
+
+  Future<void> skipNext() async {
+    try {
+      await SpotifySdk.skipNext();
+    } catch (e) {
+      debugPrint("Spotify skipNext error: $e");
+    }
+  }
+
 
   void _subscribeToPlayerState() {
     SpotifySdk.subscribePlayerState().listen((PlayerState state) {

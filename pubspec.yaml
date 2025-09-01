@@ -1,4 +1,4 @@
-name: revrider
+name: rydem
 description: A Flutter app for BLE throttle-to-engine-sound simulation.
 publish_to: 'none' # do not publish
 
@@ -11,7 +11,9 @@ dependencies:
   flutter:
     sdk: flutter
 # pubspec.yaml
-
+# flutter_web_auth: ^0.5.0
+  #uni_links: ^0.5.1
+  url_launcher: ^6.2.5
   permission_handler: ^12.0.1
   lottie: ^2.2.0
   # BLE

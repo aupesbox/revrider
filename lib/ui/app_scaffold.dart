@@ -25,7 +25,7 @@ class AppScaffold extends StatelessWidget {
             DrawerHeader(
               decoration: BoxDecoration(color: Theme.of(context).primaryColor),
               child: const Text(
-                'RevRider',
+                'rydem',
                 style: TextStyle(color: Colors.white, fontSize: 24),
               ),
             ),
@@ -81,8 +81,8 @@ class AppScaffold extends StatelessWidget {
 
 // import 'package:flutter/material.dart';
 // import 'package:provider/provider.dart';
-// import 'package:revrider/ui/shop_screen.dart';
-// import 'package:revrider/ui/upgrade_screen.dart';
+// import 'package:rydem/ui/shop_screen.dart';
+// import 'package:rydem/ui/upgrade_screen.dart';
 // import '../providers/purchase_provider.dart';
 // import 'home_screen.dart';
 // import 'exhaust_studio.dart';
@@ -111,7 +111,7 @@ class AppScaffold extends StatelessWidget {
 //           children: [
 //             const DrawerHeader(
 //               decoration: BoxDecoration(color: Colors.deepPurple),
-//               child: Text('RevRider', style: TextStyle(fontSize: 24, color: Colors.white)),
+//               child: Text('rydem', style: TextStyle(fontSize: 24, color: Colors.white)),
 //             ),
 //             ListTile(
 //               leading: const Icon(Icons.dashboard),
@@ -184,12 +184,12 @@ class AppScaffold extends StatelessWidget {
 // }
 //
 // // import 'package:flutter/material.dart';
-// // import 'package:revrider/ui/home_screen.dart';
-// // import 'package:revrider/ui/exhaust_studio.dart';
-// // import 'package:revrider/ui/shop_screen.dart';
-// // import 'package:revrider/ui/settings_screen.dart';
-// // import 'package:revrider/ui/profile_screen.dart';
-// // import 'package:revrider/ui/upgrade_screen.dart';
+// // import 'package:rydem/ui/home_screen.dart';
+// // import 'package:rydem/ui/exhaust_studio.dart';
+// // import 'package:rydem/ui/shop_screen.dart';
+// // import 'package:rydem/ui/settings_screen.dart';
+// // import 'package:rydem/ui/profile_screen.dart';
+// // import 'package:rydem/ui/upgrade_screen.dart';
 // //
 // // class AppScaffold extends StatelessWidget {
 // //   final Widget child;
@@ -213,7 +213,7 @@ class AppScaffold extends StatelessWidget {
 // //                 color: Theme.of(context).primaryColor,
 // //               ),
 // //               child: Text(
-// //                 'RevRider',
+// //                 'rydem',
 // //                 style: TextStyle(
 // //                   color: Colors.white,
 // //                   fontSize: 24,
@@ -277,8 +277,8 @@ class AppScaffold extends StatelessWidget {
 // // }
 // // // import 'package:flutter/material.dart';
 // // // import 'package:provider/provider.dart';
-// // // import 'package:revrider/ui/shop_screen.dart';
-// // // import 'package:revrider/ui/upgrade_screen.dart';
+// // // import 'package:rydem/ui/shop_screen.dart';
+// // // import 'package:rydem/ui/upgrade_screen.dart';
 // // // import '../providers/purchase_provider.dart';
 // // // import 'home_screen.dart';
 // // // import 'exhaust_studio.dart';
@@ -309,7 +309,7 @@ class AppScaffold extends StatelessWidget {
 // // //           children: [
 // // //             const DrawerHeader(
 // // //               decoration: BoxDecoration(color: Colors.deepPurple),
-// // //               child: Text('RevRider', style: TextStyle(fontSize: 24, color: Colors.white)),
+// // //               child: Text('rydem', style: TextStyle(fontSize: 24, color: Colors.white)),
 // // //             ),
 // // //             ListTile(
 // // //               leading: const Icon(Icons.dashboard),

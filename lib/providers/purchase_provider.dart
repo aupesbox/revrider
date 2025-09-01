@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 class PurchaseProvider extends ChangeNotifier {
-  bool _isPremium   = false;
-  bool _devOverride = false;   // allow QA / dev to override
+  bool _isPremium   = true;
+  bool _devOverride = true;   // allow QA / dev to override
   Offerings? _offerings;
   CustomerInfo? _customerInfo;
   CustomerInfo? get customerInfo => _customerInfo;

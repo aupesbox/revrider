@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:rydem/ui/splash_screen.dart';
 
 import 'providers/theme_provider.dart';
 import 'providers/purchase_provider.dart';
@@ -24,6 +25,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final session = await AudioSession.instance;
   await session.configure(const AudioSessionConfiguration.music());
+
+
   runApp(
     MultiProvider(
       providers: [
@@ -45,27 +48,28 @@ Future<void> main() async {
           create: (ctx) => AppState(ctx.read<BleManager>()),
         ),
       ],
-      child: const RevRiderApp(),
+      child: const rydemApp(),
     ),
   );
 }
 
-class RevRiderApp extends StatelessWidget {
-  const RevRiderApp({super.key});
+class rydemApp extends StatelessWidget {
+  const rydemApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     final themeMode = context.watch<ThemeProvider>().mode;
 
     return MaterialApp(
-      title: 'RevRider',
+      title: 'rydem',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(),
       // theme: AppThemes.lightTheme,
       // darkTheme: AppThemes.darkTheme,
       themeMode: themeMode,
-      initialRoute: '/',
+      initialRoute: '/splash',
       routes: {
+        '/splash': (_) => const SplashScreen(),
         '/':       (_) => const HomeScreen(),
         '/studio': (_) => const ExhaustStudio(),
         '/shop':   (_) => const ShopScreen(),
@@ -91,16 +95,16 @@ class RevRiderApp extends StatelessWidget {
 //   WidgetsFlutterBinding.ensureInitialized();
 //   final session = await AudioSession.instance;
 //   await session.configure(const AudioSessionConfiguration.music());
-//   runApp(const RevRiderMVP());
+//   runApp(const rydemMVP());
 // }
 //
-// class RevRiderMVP extends StatelessWidget {
-//   const RevRiderMVP({Key? key}) : super(key: key);
+// class rydemMVP extends StatelessWidget {
+//   const rydemMVP({Key? key}) : super(key: key);
 //
 //   @override
 //   Widget build(BuildContext context) {
 //     return MaterialApp(
-//       title: 'RevRider MVP',
+//       title: 'rydem MVP',
 //       theme: ThemeData.dark(),
 //       home: const HomePage(),
 //       debugShowCheckedModeBanner: false,
@@ -235,7 +239,7 @@ class RevRiderApp extends StatelessWidget {
 //     return Scaffold(
 //       backgroundColor: Colors.black,
 //       appBar: AppBar(
-//         title: const Text('RevRider MVP'),
+//         title: const Text('rydem MVP'),
 //         actions: [
 //           IconButton(
 //             icon: const Icon(Icons.tune),

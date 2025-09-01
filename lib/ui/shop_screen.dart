@@ -10,7 +10,7 @@ import '../providers/purchase_provider.dart';
 import '../models/sound_bank.dart';
 
 class ShopScreen extends StatefulWidget {
-  const ShopScreen({Key? key}) : super(key: key);
+  const ShopScreen({super.key});
 
   @override
   State<ShopScreen> createState() => _ShopScreenState();
