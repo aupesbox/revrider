@@ -1,73 +1,93 @@
 // lib/services/sound_bank_service.dart
-
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
-import 'package:archive/archive_io.dart';
+import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
-
-import '../models/sound_bank.dart';
+import '../models/exhaust_pack.dart';
 
 class SoundBankService {
-  /// Downloads a ZIP for [bankId] and unpacks it into a local directory.
-  /// Returns the path to the directory, or null on failure.
-  /// Fetches the JSON catalog of categories → brands → models
+  SoundBankService._();
+  static final instance = SoundBankService._();
 
-  // Future<List<SoundBankCategory>> fetchCatalog() async {
-  //   final jsonStr = await rootBundle.loadString('assets/catalog.json');
-  //   final data = jsonDecode(jsonStr) as List<dynamic>;
-  //   return data
-  //       .map((j) => SoundBankCategory.fromJson(j as Map<String, dynamic>))
-  //       .toList();
-  // }
-
-  Future<List<SoundBankCategory>> fetchCatalog() async {
-    const url = 'https://www.aupesbox.com/catalog.json';
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode != 200) {
-      throw Exception('Catalog load failed (${response.statusCode})');
-    }
-    final List<dynamic> data = jsonDecode(response.body);
-    return data
-        .map((j) => SoundBankCategory.fromJson(j as Map<String, dynamic>))
-        .toList();
+  Future<String> _root() async {
+    final dir = await getApplicationSupportDirectory();
+    final root = '${dir.path}/exhausts';
+    await Directory(root).create(recursive: true);
+    return root;
   }
 
+  Future<List<ExhaustPack>> listInstalled() async {
+    final root = await _root();
+    final rootDir = Directory(root);
+    if (!await rootDir.exists()) return [];
 
-  Future<String?> downloadAndUnzip(String bankId, String zipUrl) async {
-    try {
-      List<int> bytes;
-      if (zipUrl.startsWith('asset://')) {
-        final assetPath = zipUrl.replaceFirst('asset://', '');
-        bytes = (await rootBundle.load(assetPath)).buffer.asUint8List();
-      } else {
-        final res = await http.get(Uri.parse(zipUrl));
-        if (res.statusCode != 200) return null;
-        bytes = res.bodyBytes;
-      }
-      final archive = ZipDecoder().decodeBytes(bytes);
-      // 2) Get app documents dir and create a folder
-      final baseDir = await getApplicationDocumentsDirectory();
-      final outDir = Directory('${baseDir.path}/banks/$bankId');
-      if (!outDir.existsSync()) outDir.createSync(recursive: true);
-
-      // 3) Decode & extract
-      //final bytes = res.bodyBytes;
-      //final archive = ZipDecoder().decodeBytes(bytes);
-      for (final file in archive) {
-        final filePath = '${outDir.path}/${file.name}';
-        if (file.isFile) {
-          File(filePath)
-            ..createSync(recursive: true)
-            ..writeAsBytesSync(file.content as List<int>);
+    final packs = <ExhaustPack>[];
+    await for (final ent in rootDir.list()) {
+      if (ent is Directory) {
+        final metaFile = File('${ent.path}/meta.json');
+        if (await metaFile.exists()) {
+          try {
+            final meta = jsonDecode(await metaFile.readAsString()) as Map;
+            packs.add(
+              ExhaustPack(
+                id: meta['id'] as String,
+                name: meta['name'] as String,
+                dirPath: ent.path,
+                source: (meta['source'] as String?) ?? 'store',
+                version: (meta['version'] as int?) ?? 1,
+              ),
+            );
+          } catch (_) {}
         }
       }
-
-      return outDir.path;
-    } catch (e) {
-      print('Download/unzip failed for $bankId: $e');
-      return null;
     }
+    packs.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return packs;
+  }
+
+  /// Download pack ZIP or individual files. Here: individual file URLs.
+  /// If you deliver a ZIP, unzip with an archive lib (e.g., archive_io).
+  Future<ExhaustPack> installFromUrls({
+    required String id,
+    required String name,
+    required Uri idleUrl,
+    required Uri midUrl,
+    required Uri highUrl,
+    String source = 'store',
+    int version = 1,
+  }) async {
+    final root = await _root();
+    final packDir = Directory('$root/$id');
+    if (await packDir.exists()) {
+      await packDir.delete(recursive: true);
+    }
+    await packDir.create(recursive: true);
+
+    final dio = Dio();
+    final idlePath = '${packDir.path}/idle.mp3';
+    final midPath  = '${packDir.path}/mid.mp3';
+    final highPath = '${packDir.path}/high.mp3';
+
+    await dio.download(idleUrl.toString(), idlePath);
+    await dio.download(midUrl.toString(),  midPath);
+    await dio.download(highUrl.toString(), highPath);
+
+    final meta = {
+      'id': id,
+      'name': name,
+      'version': version,
+      'source': source,
+    };
+    await File('${packDir.path}/meta.json').writeAsString(jsonEncode(meta));
+
+    return ExhaustPack(
+      id: id, name: name, dirPath: packDir.path, source: source, version: version,
+    );
+  }
+
+  Future<void> deletePack(String id) async {
+    final root = await _root();
+    final d = Directory('$root/$id');
+    if (await d.exists()) await d.delete(recursive: true);
   }
 }

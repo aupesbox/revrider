@@ -18,6 +18,27 @@ class PurchaseProvider extends ChangeNotifier {
   /// Developer toggle to force premium (for testing)
   //bool get devOverride => _devOverride;
 
+  // Minimal local state to track entitlements if you don’t already have it.
+  final Set<String> _ownedProductIds = <String>{};
+
+// UI helper: does the user own this product?
+  bool isPurchased(String productId) {
+    return _ownedProductIds.contains(productId);
+  }
+
+// UI helper: buy a product (stub for now; integrate your real IAP here)
+  Future<bool> purchase(String productId) async {
+    try {
+      // TODO: replace with real in-app purchase flow.
+      // Mark owned for UI so things update:
+      _ownedProductIds.add(productId);
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Available offerings (packages/prices) from RevenueCat
   Offerings? get offerings => _offerings;
 

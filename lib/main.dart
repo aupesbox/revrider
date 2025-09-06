@@ -1,84 +1,92 @@
 // lib/main.dart
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:rydem/ui/splash_screen.dart';
+import 'package:audio_session/audio_session.dart';
 
+import 'firebase_options.dart';
 import 'providers/theme_provider.dart';
 import 'providers/purchase_provider.dart';
-import 'providers/sound_bank_provider.dart';
 import 'providers/app_state.dart';
+
 import 'services/ble_manager.dart';
 import 'services/sound_bank_service.dart';
+
+//import 'ui/splash_screen.dart';
 import 'ui/home_screen.dart';
 import 'ui/exhaust_studio.dart';
 import 'ui/shop_screen.dart';
 import 'ui/profile_screen.dart';
 import 'ui/settings_screen.dart';
-import 'package:audio_session/audio_session.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
-  // Load saved theme
+  await FirebaseFirestore.instance
+      .collection('debug')
+      .doc('hello')
+      .set({'ok': true, 'ts': DateTime.now().toIso8601String()});
+  // Theme
   final themeProvider = ThemeProvider();
   await themeProvider.load();
-  WidgetsFlutterBinding.ensureInitialized();
+
+  // Configure audio focus/session (media)
   final session = await AudioSession.instance;
   await session.configure(const AudioSessionConfiguration.music());
-
 
   runApp(
     MultiProvider(
       providers: [
         // Theme
         ChangeNotifierProvider<ThemeProvider>.value(value: themeProvider),
-        // Purchases
+
+        // Purchases (keep if you use RevenueCat/etc.)
         ChangeNotifierProvider<PurchaseProvider>(create: (_) => PurchaseProvider()),
-        // Sound bank service & provider
-        Provider<SoundBankService>(create: (_) => SoundBankService()),
-        ChangeNotifierProvider<SoundBankProvider>(
-          create: (ctx) => SoundBankProvider(
-            ctx.read<SoundBankService>(),
-            ctx.read<PurchaseProvider>(),
-          ),
-        ),
+
+        // Sound bank service as a singleton (so context.read<SoundBankService>() still works)
+        Provider<SoundBankService>.value(value: SoundBankService.instance),
+
         // BLE & App State
         Provider<BleManager>(create: (_) => BleManager()),
-        ChangeNotifierProvider<AppState>(
-          create: (ctx) => AppState(ctx.read<BleManager>()),
-        ),
+        ChangeNotifierProvider<AppState>(create: (ctx) => AppState(ctx.read<BleManager>())),
       ],
-      child: const rydemApp(),
+      child: const RydemApp(),
     ),
   );
 }
 
-class rydemApp extends StatelessWidget {
-  const rydemApp({super.key});
+class RydemApp extends StatelessWidget {
+  const RydemApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     final themeMode = context.watch<ThemeProvider>().mode;
 
     return MaterialApp(
-      title: 'rydem',
+      title: 'Rydem',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(),
-      // theme: AppThemes.lightTheme,
+      theme: ThemeData.dark(), // swap to your AppThemes if you have them wired
       // darkTheme: AppThemes.darkTheme,
       themeMode: themeMode,
-      initialRoute: '/splash',
+      initialRoute: '/',
       routes: {
-        '/splash': (_) => const SplashScreen(),
-        '/':       (_) => const HomeScreen(),
-        '/studio': (_) => const ExhaustStudio(),
-        '/shop':   (_) => const ShopScreen(),
-        '/profile':(_) => const ProfileScreen(),
-        '/settings':(_) => const SettingsScreen(),
+        //'/splash': (_)   => const SplashScreen(),
+        '/':       (_)   => const HomeScreen(),
+        '/studio': (_)   => const ExhaustStudio(),
+        '/shop':   (_)   => const ShopScreen(),
+        '/profile':(_)   => const ProfileScreen(),
+        '/settings':(_)  => const SettingsScreen(),
       },
     );
   }
 }
+
 
 //
 // // lib/main.dart

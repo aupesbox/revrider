@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "276432678868",
+    "project_id": "rydemdb-e02aa",
+    "storage_bucket": "rydemdb-e02aa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:276432678868:android:6743d2455fb0a197e8f041",
+        "android_client_info": {
+          "package_name": "com.aupesbox.rydem"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBzLjOtZGNNW0H6Xd2JpBkWN7Wsp4i7cUg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
