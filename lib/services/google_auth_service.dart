@@ -1,46 +1,57 @@
 // lib/services/google_auth_service.dart
-import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+class GoogleAccountLite {
+  final String email;
+  final String? displayName;
+  final String? photoUrl;
+  GoogleAccountLite({required this.email, this.displayName, this.photoUrl});
+}
 
 class GoogleAuthService {
   GoogleAuthService._();
   static final GoogleAuthService instance = GoogleAuthService._();
 
-  final GoogleSignIn _g = GoogleSignIn(
-    scopes: <String>['email', 'https://www.googleapis.com/auth/userinfo.profile'],
-  );
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  String? lastError; // for debugging UI/logcat
-
-  GoogleSignInAccount? get currentUser => _g.currentUser;
-
-  Future<GoogleSignInAccount?> signInSilently() async {
-    try {
-      final acct = await _g.signInSilently();
-      return acct;
-    } catch (e) {
-      lastError = 'silent: $e';
-      debugPrint('[GoogleAuth] signInSilently error: $e');
-      return null;
-    }
+  GoogleAccountLite? get currentUser {
+    final u = _auth.currentUser;
+    if (u == null) return null;
+    return GoogleAccountLite(
+      email: u.email ?? '',
+      displayName: u.displayName,
+      photoUrl: u.photoURL,
+    );
+    // NOTE: On Android/iOS, Firebase persists the session – this is your “silent sign-in”.
   }
 
-  Future<GoogleSignInAccount?> signIn() async {
+  /// "Silent" sign-in: just return the persisted Firebase user if present.
+  Future<GoogleAccountLite?> signInSilently() async {
+    final u = _auth.currentUser;
+    if (u == null) return null;
+    return currentUser;
+  }
+
+  /// Interactive Google sign-in via Firebase Auth's Google provider.
+  Future<GoogleAccountLite?> signIn() async {
     try {
-      // Sometimes a stale session causes null; clear then retry.
-      if (_g.currentUser != null) {
-        try { await _g.disconnect(); } catch (_) {}
+      if (kIsWeb) {
+        // Web: use a popup
+        await _auth.signInWithPopup(GoogleAuthProvider());
+      } else {
+        // Android/iOS: use native provider flow (no google_sign_in plugin required)
+        await _auth.signInWithProvider(GoogleAuthProvider());
       }
-      final acct = await _g.signIn();
-      return acct;
+      return currentUser;
     } catch (e) {
-      lastError = 'interactive: $e';
-      debugPrint('[GoogleAuth] signIn error: $e');
+      // You can log e for debugging
       return null;
     }
   }
 
   Future<void> signOut() async {
-    try { await _g.disconnect(); } catch (_) {}
+    await _auth.signOut();
   }
 }

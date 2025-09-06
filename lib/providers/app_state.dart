@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:permission_handler/permission_handler.dart';
@@ -99,6 +100,21 @@ class AppState extends ChangeNotifier {
       }
       notifyListeners();
     });
+    // Firebase Auth listener: reconcile settings when user signs in
+    FirebaseAuth.instance.authStateChanges().listen((user) async {
+      if (user != null) {
+        await _sync.reconcile(); // pull/push newest settings for this uid
+        // Optionally refresh local cache into fields:
+        final sp = await SharedPreferences.getInstance();
+        engineVolume = sp.getDouble('engineVolume') ?? engineVolume;
+        selectedBuiltInBank = sp.getString('selectedBuiltInBank') ?? selectedBuiltInBank;
+        selectedPackId = sp.getString('selectedPackId');
+        selectedRecordingPath = sp.getString('selectedRecordingPath');
+        debugBypass = sp.getBool('debugBypass') ?? debugBypass;
+        notifyListeners();
+      }
+    });
+
   }
 
   // ─────────────────────────────────────────────────────

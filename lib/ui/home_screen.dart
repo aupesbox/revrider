@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/app_state.dart';
 import '../services/ble_manager.dart';
+import '../services/google_auth_service.dart';
 import 'app_scaffold.dart';
 import 'throttle_gauge.dart';
 import 'linear_throttle_gauge.dart';
@@ -62,15 +63,13 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ),
                       TextButton(
-                        onPressed: () async {
-                          final ok = await context.read<AppState>().ensureGoogleSignedIn();
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(ok ? 'Signed in' : 'Sign-in failed')),
-                            );
-                          }
-                        },
-                        child: const Text('Sign in'),
+                          onPressed: () async {
+                          final acc = await GoogleAuthService.instance.signIn();
+                          final msg = (acc == null) ? 'Sign-in canceled' : 'Signed in';
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                          },
+
+    child: const Text('Sign in'),
                       ),
                     ],
                   ),
