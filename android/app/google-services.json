@@ -12,7 +12,28 @@
           "package_name": "com.aupesbox.rydem"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "276432678868-fevnb3jblvn97dme55d5odh6ruipmurt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aupesbox.rydem",
+            "certificate_hash": "2de16477e13086e4705766612e50fb8aef4f44f2"
+          }
+        },
+        {
+          "client_id": "276432678868-n25fqsf6bgk95mjftv7rgec28880hmio.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aupesbox.rydem",
+            "certificate_hash": "a958e6949fa9b7e2ace832352c3f22c9fe03f18e"
+          }
+        },
+        {
+          "client_id": "276432678868-4cm3pk4076auv2l80f4qsknlcr5elptu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBzLjOtZGNNW0H6Xd2JpBkWN7Wsp4i7cUg"
@@ -20,7 +41,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "276432678868-4cm3pk4076auv2l80f4qsknlcr5elptu.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "276432678868-qsbuh40dmgaiil21va97i1qvve5ggnsv.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.rydem"
+              }
+            }
+          ]
         }
       }
     }

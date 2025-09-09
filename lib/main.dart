@@ -1,6 +1,5 @@
 // lib/main.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -28,10 +27,10 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  await FirebaseFirestore.instance
-      .collection('debug')
-      .doc('hello')
-      .set({'ok': true, 'ts': DateTime.now().toIso8601String()});
+  // await FirebaseFirestore.instance
+  //     .collection('debug')
+  //     .doc('hello')
+  //     .set({'ok': true, 'ts': DateTime.now().toIso8601String()});
   // Theme
   final themeProvider = ThemeProvider();
   await themeProvider.load();
