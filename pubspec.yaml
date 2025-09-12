@@ -82,24 +82,20 @@ flutter:
     - family: RobotoMono
       fonts:
         - asset: assets/fonts/RobotoMono-Regular.ttf
+
   assets:
-    - assets/sounds/default/
-    - assets/music/
-    - assets/lottie/
-    - assets/images/
-#  assets:
-#    - assets/sounds/default/exhaust.mp3
-#    - assets/music/demo_song.mp3
-#    - assets/lottie/splash.json
-#    - assets/lottie/splash.webm
-#    - assets/catalog.json
-#    - assets/images/rydem_logo.png
-#    - assets/sounds/default/start.wav
-#    - assets/sounds/default/idle.wav
-#    - assets/sounds/default/first_gear.wav
-#    - assets/sounds/default/second_gear.wav
-#    - assets/sounds/default/third_gear.wav
-#    - assets/sounds/default/shutdown.wav
+    - assets/sounds/default/exhaust.mp3
+    - assets/music/demo_song.mp3
+    - assets/lottie/splash.json
+    - assets/lottie/splash.webm
+    - assets/catalog.json
+    - assets/images/rydem_logo.png
+    - assets/sounds/default/start.wav
+    - assets/sounds/default/idle.wav
+    - assets/sounds/default/first_gear.wav
+    - assets/sounds/default/second_gear.wav
+    - assets/sounds/default/third_gear.wav
+    - assets/sounds/default/shutdown.wav
 
 
 
