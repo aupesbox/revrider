@@ -62,6 +62,7 @@ class SpotifyService {
     }
   }
 
+
   /// Pause playback
   Future<void> pause() async {
     try {

@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:rydem/ui/trip_card.dart';
 
 import '../providers/app_state.dart';
 import '../services/ble_manager.dart';
-import '../services/google_auth_service.dart';
 import 'app_scaffold.dart';
 import 'map_panel.dart';
 import 'throttle_gauge.dart';
@@ -50,7 +50,11 @@ class HomeScreen extends StatelessWidget {
                       height: 240, // ~top half on most phones; tweak as you like
                       child: MapPanel(),
                 ),
-         ),
+                ),
+                 const Padding(
+                   padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+                     child: TripCard(),
+                  ),
           // ── NEW: optional Google sign-in banner (no blocking) ──────────────
           // if (!appState.profile.googleSignedIn)
           //   Padding(
@@ -95,9 +99,10 @@ class HomeScreen extends StatelessWidget {
                     : Icons.bluetooth,
               ),
               label: Text(
-                status == BleConnectionStatus.connected ? '$statusLabel' : '$statusLabel - Tap to connect:',
+                status == BleConnectionStatus.connected ? statusLabel : '$statusLabel - Tap to connect:',
               ),
-              onPressed: status == BleConnectionStatus.connected
+
+             onPressed: status == BleConnectionStatus.connected
                   ? () => appState.disconnect()
                   : () => appState.connect(),
               style: ElevatedButton.styleFrom(
@@ -165,7 +170,7 @@ class HomeScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             child: Container(
               decoration: BoxDecoration(
-                color: appState.spotifyAuthenticated ? const Color(0xFF1DB954) : Colors.white10,
+                color: appState.spotifyAuthenticated ? const Color(0xFF3FBCD3) : Colors.white10,
                 borderRadius: BorderRadius.circular(12),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -191,6 +196,11 @@ class HomeScreen extends StatelessWidget {
                       icon: const Icon(Icons.play_arrow, color: Colors.deepOrange),
                       onPressed: () => appState.spotifyService.resume(),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.stop),
+                      onPressed: () => appState.spotifyService.pause(),
+                    ),
+
                     IconButton(
                       icon: const Icon(Icons.skip_next, color: Colors.deepOrange),
                       onPressed: () => appState.spotifyService.skipNext(),

@@ -65,22 +65,43 @@ class BleManager {
         _connectionCtrl.add(BleConnectionStatus.connected);
         _subscribeToThrottle(id);
       } else if (event.connectionState == DeviceConnectionState.disconnected) {
-        // 🔧 Full cleanup on disconnect
-        await _notifySub?.cancel();
-        _notifySub = null;
-        await _connSub?.cancel();
-        _connSub = null;
-        _deviceId = null;
+            await _notifySub?.cancel();
+              _notifySub = null;
+              await _connSub?.cancel();
+              _connSub = null;
+              _deviceId = null;
+              _connectionCtrl.add(BleConnectionStatus.disconnected);
+      // 🔁 Retry scanning until the device comes back
+      Timer.periodic(const Duration(seconds: 2), (timer) {
+            if (_connectionCtrl.isClosed) {
+                 timer.cancel();
+                  return;
+            }
+            if (_deviceId == null) {
+                  connect(); // will try again
+            } else {
+                  timer.cancel(); // stop retry when connected
+            }
+      });
+  }
 
-        _connectionCtrl.add(BleConnectionStatus.disconnected);
-
-        // 🔁 Auto-reconnect after short delay
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (!_connectionCtrl.isClosed) {
-            connect();
-          }
-        });
-      }
+    // } else if (event.connectionState == DeviceConnectionState.disconnected) {
+      //   // 🔧 Full cleanup on disconnect
+      //   await _notifySub?.cancel();
+      //   _notifySub = null;
+      //   await _connSub?.cancel();
+      //   _connSub = null;
+      //   _deviceId = null;
+      //
+      //   _connectionCtrl.add(BleConnectionStatus.disconnected);
+      //
+      //   // 🔁 Auto-reconnect after short delay
+      //   Future.delayed(const Duration(milliseconds: 500), () {
+      //     if (!_connectionCtrl.isClosed) {
+      //       connect();
+      //     }
+      //   });
+      // }
     }, onError: (_) {
       _connectionCtrl.add(BleConnectionStatus.disconnected);
     });

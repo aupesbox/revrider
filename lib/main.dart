@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:rydem/ui/test_harness_screen.dart';
 
 import 'firebase_options.dart';
 import 'providers/theme_provider.dart';
@@ -75,6 +76,8 @@ class RydemApp extends StatelessWidget {
       themeMode: themeMode,
       initialRoute: '/',
       routes: {
+        // main.dart → inside MaterialApp routes
+        '/test': (_) => const TestHarnessScreen(),
         //'/splash': (_)   => const SplashScreen(),
         '/':       (_)   => const HomeScreen(),
         '/studio': (_)   => const ExhaustStudio(),

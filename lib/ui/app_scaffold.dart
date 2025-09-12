@@ -72,6 +72,11 @@ class AppScaffold extends StatelessWidget {
                 Navigator.pushNamed(context, '/settings');
               },
             ),
+            TextButton(
+              onPressed: () => Navigator.pushNamed(context, '/test'),
+              child: const Text('Test Harness'),
+            )
+
           ],
         ),
       ),

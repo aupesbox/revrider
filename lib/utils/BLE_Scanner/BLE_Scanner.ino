@@ -1,4 +1,3 @@
-
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
@@ -8,152 +7,193 @@
 #include <BLE2902.h>
 #include <TFT_eSPI.h>
 
-// ── BLE UUIDs ────────────────────────────────────────────────────────
+// ── BLE UUIDs ───────────────────────────────────────
 #define SERVICE_UUID        "12345678-1234-5678-1234-56789abcdef0"
 #define CHAR_THROTTLE_UUID  "12345678-1234-5678-1234-56789abcdef1"
 #define CHAR_CALIBRATE_UUID "12345678-1234-5678-1234-56789abcdef2"
 
-// ── Hardware Objects ──────────────────────────────────────────────────
+// ── Hardware Objects ────────────────────────────────
 TFT_eSPI        tft = TFT_eSPI();
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 
-// ── BLE Globals ──────────────────────────────────────────────────────
+// ── BLE Globals ─────────────────────────────────────
 BLECharacteristic* throttleChar = nullptr;
 BLECharacteristic* calibChar    = nullptr;
+BLEAdvertising*    gAdv         = nullptr;   // global advertiser
 
-volatile bool needCalibration = false;
-bool deviceConnected          = false;
-bool oldDeviceConnected       = false;
-float zeroOffset              = 0.0;
+volatile bool needCalibration   = false;
+bool deviceConnected            = false;
+bool oldDeviceConnected         = false;
+float zeroOffset                = 0.0;
 
-// ── Read heading (0–360°) from BNO055 ─────────────────────────────────
+// ── Read Heading ────────────────────────────────────
 float readHeading() {
-  sensors_event_t evt;
-  bno.getEvent(&evt);
-  // evt.orientation.x goes from 0→360 in Adafruit library
-  return evt.orientation.x;
+    sensors_event_t evt;
+    bno.getEvent(&evt);
+    return evt.orientation.x; // 0–360
 }
 
-// ── BLE Server callbacks ───────────────────────────────────────────────
+// ── BLE Callbacks ───────────────────────────────────
 class ServerCB : public BLEServerCallbacks {
-  void onConnect(BLEServer* p)    override { deviceConnected = true; }
-  void onDisconnect(BLEServer* p) override { deviceConnected = false; }
+    void onConnect(BLEServer*) override {
+        deviceConnected = true;
+    }
+    void onDisconnect(BLEServer*) override {
+        deviceConnected = false;
+        // 🔁 Restart advertising automatically
+        if (gAdv) {
+            gAdv->start();
+            Serial.println("Restarting advertising...");
+        }
+    }
 };
 
-// ── Write-to-zero callback ─────────────────────────────────────────────
 class CalibCB : public BLECharacteristicCallbacks {
-  void onWrite(BLECharacteristic* chr) override {
-    String v = chr->getValue();
-    if (v.length() && v[0] == 0x01) {
-      zeroOffset     = readHeading();
-      needCalibration = true;
+    void onWrite(BLECharacteristic* chr) override {
+        String v = chr->getValue();
+        if (v.length() && v[0] == 0x01) {
+            zeroOffset      = readHeading();
+            needCalibration = true;
+        }
     }
-  }
 };
 
 void setup() {
-  Serial.begin(115200);
-  delay(500);
+    Serial.begin(115200);
+    delay(500);
 
-  // —— TFT Init ——  
-  tft.init();
-  tft.setRotation(1);
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextSize(2);
-  tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-  tft.setCursor(0, 0);
-  tft.print("Advertising...");
+    // TFT init
+    tft.init();
+    tft.setRotation(1);
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextSize(2);
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+    tft.setCursor(0, 0);
+    tft.print("Advertising...");
 
-  // —— BNO055 Init ——  
-  if (!bno.begin()) {
-    Serial.println("BNO055 not found!");
-    while (1) delay(10);
-  }
-  bno.setExtCrystalUse(true);
+    // BNO055 init
+    if (!bno.begin()) {
+        Serial.println("BNO055 not found!");
+        while (1) delay(10);
+    }
+    bno.setExtCrystalUse(true);
 
-  // —— BLE Init ——  
-  BLEDevice::init("aupesbox");
-  BLEServer* server = BLEDevice::createServer();
-  server->setCallbacks(new ServerCB());
+    // BLE init
+    BLEDevice::init("aupesbox");
+    BLEServer* server = BLEDevice::createServer();
+    server->setCallbacks(new ServerCB());
 
-  BLEService* svc = server->createService(SERVICE_UUID);
+    BLEService* svc = server->createService(SERVICE_UUID);
 
-  throttleChar = svc->createCharacteristic(
-    CHAR_THROTTLE_UUID,
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
-  throttleChar->addDescriptor(new BLE2902());
+    throttleChar = svc->createCharacteristic(
+            CHAR_THROTTLE_UUID, BLECharacteristic::PROPERTY_NOTIFY
+    );
+    throttleChar->addDescriptor(new BLE2902());
 
-  calibChar = svc->createCharacteristic(
-    CHAR_CALIBRATE_UUID,
-    BLECharacteristic::PROPERTY_WRITE
-  );
-  calibChar->setCallbacks(new CalibCB());
+    calibChar = svc->createCharacteristic(
+            CHAR_CALIBRATE_UUID, BLECharacteristic::PROPERTY_WRITE
+    );
+    calibChar->setCallbacks(new CalibCB());
 
-  svc->start();
-  BLEAdvertising* adv = server->getAdvertising();
-  adv->addServiceUUID(SERVICE_UUID);
-  adv->setScanResponse(true);
-  adv->setMinPreferred(0x06);
-  adv->setMinPreferred(0x12);
-  adv->start();
-  Serial.println("aupesbox advertising started");
+    svc->start();
+
+    // Global advertiser setup
+    gAdv = server->getAdvertising();
+    gAdv->addServiceUUID(SERVICE_UUID);
+    gAdv->setScanResponse(true);
+    gAdv->setMinPreferred(0x06);
+    gAdv->setMinPreferred(0x12);
+    gAdv->start();
+
+    Serial.println("aupesbox advertising started");
 }
 
 void loop() {
-  // —— Update display on connect/disconnect ——  
-  if (deviceConnected != oldDeviceConnected) {
-    oldDeviceConnected = deviceConnected;
-    tft.fillScreen(TFT_BLACK);
-    tft.setCursor(0, 0);
-    tft.setTextColor(deviceConnected ? TFT_GREEN : TFT_YELLOW, TFT_BLACK);
-    tft.print(deviceConnected ? "Connected" : "Advertising...");
-  }
+    // ── Update TFT on connection change ──
+    if (deviceConnected != oldDeviceConnected) {
+        oldDeviceConnected = deviceConnected;
+        tft.fillScreen(TFT_BLACK);
+        tft.setCursor(0, 0);
+        tft.setTextColor(deviceConnected ? TFT_GREEN : TFT_YELLOW, TFT_BLACK);
+        tft.print(deviceConnected ? "Connected" : "Advertising...");
+    }
 
-  if (deviceConnected) {
-    // 1) Read & zero‐offset heading
-    float rawH = readHeading();
-    float adjH = rawH - zeroOffset;
-    if (adjH < 0) adjH += 360.0;
+    if (deviceConnected) {
+        // Read orientation
+        sensors_event_t evt;
+        bno.getEvent(&evt);
+        float rawH  = evt.orientation.x;
+        float roll  = evt.orientation.y;
+        float pitch = evt.orientation.z;
 
-    // 2) Compute raw 0–255 for BLE
-    uint8_t rawVal = uint8_t(constrain((adjH / 360.0) * 255.0, 0.0, 255.0));
+        // Apply zero-offset
+        float adjH = rawH - zeroOffset;
+        if (adjH < 0) adjH += 360.0;
 
-    // 3) Notify BLE central
-    throttleChar->setValue(&rawVal, 1);
-    throttleChar->notify();
+        // Map to 0–255 and notify
+        uint8_t rawVal = uint8_t(constrain((adjH / 360.0) * 255.0, 0.0, 255.0));
+        throttleChar->setValue(&rawVal, 1);
+        throttleChar->notify();
 
-    // 4) Compute and display percent 0–100
-    int pct = int((adjH / 360.0) * 100.0 + 0.5);
-    tft.setCursor(0, 32);
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.printf("Thr: %3d%%", pct);
+        // TFT throttle % display
+        int pct = int((adjH / 360.0) * 100.0 + 0.5);
+        tft.setCursor(0, 32);
+        tft.setTextColor(TFT_WHITE, TFT_BLACK);
+        tft.printf("Thr: %3d%%", pct);
 
-    // 5) Show Heading, Roll, Pitch
-    sensors_event_t evt;
-    bno.getEvent(&evt);
-    float roll  = evt.orientation.y;  // –180→180
-    float pitch = evt.orientation.z;  // –90→90
+        // TFT heading, roll, pitch
+        // tft.setCursor(0, 56);
+        // tft.printf("H:%3.0f R:%3.0f P:%3.0f", rawH, roll, pitch);
+// Heading (0–360)/////////////////graphs
+        tft.setCursor(0, 56);
+        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+        tft.printf("H:%3.0f", rawH);
+        drawBar(60, 56, 150, 10, rawH, 0, 360, TFT_YELLOW);
 
-    tft.setCursor(0, 56);
-    tft.printf("H:%3.0f R:%3.0f P:%3.0f", rawH, roll, pitch);
+// Roll (-180–180)
+        tft.setCursor(0, 72);
+        tft.setTextColor(TFT_CYAN, TFT_BLACK);
+        tft.printf("R:%3.0f", roll);
+        drawBar(60, 72, 150, 10, roll, -180, 180, TFT_CYAN);
 
-    // 6) Show calibration status
-    uint8_t sys, gyr, acc, mag;
-    bno.getCalibration(&sys, &gyr, &acc, &mag);
-    tft.setCursor(0, 80);
-    tft.printf("Cal S%d G%d A%d M%d", sys, gyr, acc, mag);
-  }
+// Pitch (-90–90)
+        tft.setCursor(0, 88);
+        tft.setTextColor(TFT_GREEN, TFT_BLACK);
+        tft.printf("P:%3.0f", pitch);
+        drawBar(60, 88, 150, 10, pitch, -90, 90, TFT_GREEN);
+////////////////////////////////////////////////////////////////
+        // Calibration status
+        uint8_t sys, gyrC, accC, magC;
+        bno.getCalibration(&sys, &gyrC, &accC, &magC);
+        tft.setCursor(0, 80);
+        //tft.printf("Cal S%d G%d A%d M%d", sys, gyrC, accC, magC);
+    }
 
-  // Show “Zero set!” briefly on calibration
-  if (needCalibration) {
-    tft.fillScreen(TFT_BLACK);
-    tft.setCursor(0, 0);
-    tft.setTextColor(TFT_CYAN, TFT_BLACK);
-    tft.print("Zero set!");
-    delay(800);
-    needCalibration = false;
-  }
+    // Show "Zero set!" after calibration
+    if (needCalibration) {
+        tft.fillScreen(TFT_BLACK);
+        tft.setCursor(0, 0);
+        tft.setTextColor(TFT_CYAN, TFT_BLACK);
+        tft.print("Zero set!");
+        delay(800);
+        needCalibration = false;
+    }
 
-  delay(100);  // ~10 Hz update
+    delay(100);  // ~10 Hz update
+}
+// Draw a horizontal bar (x, y = top-left, w = max width, h = height, val = -100..100 or 0..360)
+void drawBar(int x, int y, int w, int h, float val, float minVal, float maxVal, uint16_t color) {
+    // Map value to 0..w
+    int barLen = map((int)val, (int)minVal, (int)maxVal, 0, w);
+    if (barLen < 0) barLen = 0;
+    if (barLen > w) barLen = w;
+
+    // Clear background
+    tft.fillRect(x, y, w, h, TFT_BLACK);
+
+    // Draw filled portion
+    tft.fillRect(x, y, barLen, h, color);
+
+    // Draw border
+    tft.drawRect(x, y, w, h, TFT_WHITE);
 }
