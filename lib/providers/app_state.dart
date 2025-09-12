@@ -161,7 +161,7 @@ class AppState extends ChangeNotifier {
       // Load the 6-clip default pack by default
       await audio.loadFullPack(
         startPath: "assets/sounds/default/start.wav",
-        idlePath: "assets/sounds/default/idle.wav",
+        idlePath: "assets/sounds/default/idle1.wav",
         gear1Path: "assets/sounds/default/first_gear.wav",
         gear2Path: "assets/sounds/default/second_gear.wav",
         gear3Path: "assets/sounds/default/third_gear.wav",
@@ -202,7 +202,7 @@ class AppState extends ChangeNotifier {
     // Preload default bank using 6-clip pack
     await audio.loadFullPack(
       startPath: "assets/sounds/default/start.wav",
-      idlePath: "assets/sounds/default/idle.wav",
+      idlePath: "assets/sounds/default/idle1.wav",
       gear1Path: "assets/sounds/default/first_gear.wav",
       gear2Path: "assets/sounds/default/second_gear.wav",
       gear3Path: "assets/sounds/default/third_gear.wav",
@@ -217,9 +217,9 @@ class AppState extends ChangeNotifier {
       final manifestRaw = await rootBundle.loadString('AssetManifest.json');
       final Map<String, dynamic> manifest = jsonDecode(manifestRaw);
       final set = <String>{};
-      // Treat any folder under assets/sounds/* that contains an idle.wav as a bank
+      // Treat any folder under assets/sounds/* that contains an idle1.wav as a bank
       for (final key in manifest.keys) {
-        if (key.startsWith('$builtInBase/') && key.endsWith('/idle.wav')) {
+        if (key.contains('idle1.wav')) {
           final parts = key.split('/');
           if (parts.length >= 3) set.add(parts[2]);
         }
@@ -238,12 +238,12 @@ class AppState extends ChangeNotifier {
     selectedRecordingPath = null;
 
     await audio.loadFullPack(
-      startPath: "assets/sounds/$bank/start.wav",
-      idlePath: "assets/sounds/$bank/idle.wav",
-      gear1Path: "assets/sounds/$bank/first_gear.wav",
-      gear2Path: "assets/sounds/$bank/second_gear.wav",
-      gear3Path: "assets/sounds/$bank/third_gear.wav",
-      shutdownPath: "assets/sounds/$bank/shutdown.wav",
+      startPath: "assets/sounds/default/start.wav",
+      idlePath: "assets/sounds/default/idle1.wav",
+      gear1Path: "assets/sounds/default/first_gear.wav",
+      gear2Path: "assets/sounds/default/second_gear.wav",
+      gear3Path: "assets/sounds/default/third_gear.wav",
+      shutdownPath: "assets/sounds/default/shutdown.wav",
     );
     audio.setEngineVolume(engineVolume);
 
@@ -289,7 +289,7 @@ class AppState extends ChangeNotifier {
       // For now, load the default 6-clip pack (replace with pack file paths if you store them)
       await audio.loadFullPack(
         startPath: "assets/sounds/default/start.wav",
-        idlePath: "assets/sounds/default/idle.wav",
+        idlePath: "assets/sounds/default/idle1.wav",
         gear1Path: "assets/sounds/default/first_gear.wav",
         gear2Path: "assets/sounds/default/second_gear.wav",
         gear3Path: "assets/sounds/default/third_gear.wav",
@@ -792,7 +792,7 @@ class LocalTrack {
 //       // );
 //       await audio.loadFullPack(
 //         startPath: "assets/sounds/default/start.wav3",
-//         idlePath: "assets/sounds/default/idle.wav",
+//         idlePath: "assets/sounds/default/idle1.wav",
 //         gear1Path: "assets/sounds/default/first_gear.wav",
 //         gear2Path: "assets/sounds/default/second_gear.wav",
 //         gear3Path: "assets/sounds/default/third_gear.wav",
