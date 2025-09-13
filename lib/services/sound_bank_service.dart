@@ -64,7 +64,7 @@ class SoundBankService {
     await packDir.create(recursive: true);
 
     final dio = Dio();
-    final idlePath = '${packDir.path}/idle.mp3';
+    final idlePath = '${packDir.path}/idle1.wav';
     final midPath  = '${packDir.path}/mid.mp3';
     final highPath = '${packDir.path}/high.mp3';
 

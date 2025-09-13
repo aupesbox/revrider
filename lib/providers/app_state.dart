@@ -171,7 +171,7 @@ class AppState extends ChangeNotifier {
 
       // If user selected a standalone recording earlier, keep that flow working:
       if (selectedRecordingPath != null && selectedRecordingPath!.isNotEmpty) {
-        await audio.loadSingleMasterFile(selectedRecordingPath!);
+        //await audio.loadSingleMasterFile(selectedRecordingPath!);
         audio.setEngineVolume(engineVolume);
       }
     } catch (e) {
@@ -188,7 +188,7 @@ class AppState extends ChangeNotifier {
     // keep old API call working if shim exists (harmless if present)
     try {
       // ignore: deprecated_member_use_from_same_package
-      audio.setMix(enabled: false, engineVol: engineVolume, musicVol: 0);
+     // audio.setMix(enabled: false, engineVol: engineVolume, musicVol: 0);
     } catch (_) {}
     await _prefsSync.writeThrough(engineVolume: engineVolume);
     notifyListeners();
@@ -258,7 +258,7 @@ class AppState extends ChangeNotifier {
   Future<void> selectRecordingFile(String filePath) async {
     selectedRecordingPath = filePath;
     selectedPackId = null;
-    await audio.loadSingleMasterFile(filePath);
+    //await audio.loadSingleMasterFile(filePath);
     audio.setEngineVolume(engineVolume);
     await _prefsSync.writeThrough(
       recordingPath: filePath,
@@ -355,7 +355,7 @@ class AppState extends ChangeNotifier {
     try {
       // keep compatibility if shim exists
       // ignore: deprecated_member_use_from_same_package
-      audio.setMix(enabled: false, engineVol: engineVolume, musicVol: 0);
+      //audio.setMix(enabled: false, engineVol: engineVolume, musicVol: 0);
     } catch (_) {}
     _trackSub?.cancel();
     if (spotifyAuthenticated) {
@@ -377,7 +377,7 @@ class AppState extends ChangeNotifier {
     _trackSub = null;
     try {
       // ignore: deprecated_member_use_from_same_package
-      audio.setMix(enabled: false, engineVol: engineVolume, musicVol: 0);
+      //audio.setMix(enabled: false, engineVol: engineVolume, musicVol: 0);
     } catch (_) {}
     notifyListeners();
   }
@@ -400,7 +400,7 @@ class AppState extends ChangeNotifier {
     try {
       audio.playShutdown();
     } catch (_) {
-      audio.playCutoff();
+      audio.playShutdown();
     }
     notifyListeners();
   }
@@ -502,7 +502,7 @@ class AppState extends ChangeNotifier {
   String selectedLocalTrackId = 'road';
   void setSelectedLocalTrack(String id) {
     selectedLocalTrackId = id;
-    audio.loadMusicAsset(defaultTracks.firstWhere((t) => t.id == id).assetPath);
+    //audio.loadMusicAsset(defaultTracks.firstWhere((t) => t.id == id).assetPath);
     notifyListeners();
   }
 }

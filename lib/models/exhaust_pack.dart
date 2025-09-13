@@ -14,7 +14,7 @@ class ExhaustPack {
     required this.version,
   });
 
-  String get idlePath => '$dirPath/idle.mp3';
+  String get idlePath => '$dirPath/idle1.wav';
   String get midPath  => '$dirPath/mid.mp3';
   String get highPath => '$dirPath/high.mp3';
 }

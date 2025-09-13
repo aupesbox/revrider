@@ -1,20 +1,25 @@
-import 'package:flutter/cupertino.dart';
+// lib/services/audio_manager.dart
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
 class AudioManager {
-  final AudioPlayer _idle = AudioPlayer();
-  final AudioPlayer _gear1 = AudioPlayer();
-  final AudioPlayer _gear2 = AudioPlayer();
-  final AudioPlayer _gear3 = AudioPlayer();
+  // One-shot clips
+  AudioPlayer? _startClip;
+  AudioPlayer? _shutdownClip;
 
-  AudioPlayer? _start;
-  AudioPlayer? _shutdown;
+  // Continuous loop layers
+  final AudioPlayer _idleLayer = AudioPlayer();
+  final AudioPlayer _gear1Layer = AudioPlayer();
+  final AudioPlayer _gear2Layer = AudioPlayer();
+  final AudioPlayer _gear3Layer = AudioPlayer();
 
-  double _engineVolume = 1.0;
-  int crossfadeMs = 300; // smooth transitions
   int _lastZone = -1;
+  double _engineVolume = 1.0;
 
-  // Load your pack of 6 files
+  int crossfadeMs = 300;
+  int _fadeSteps = 12;
+
+  /// Load a 6-clip pack
   Future<void> loadFullPack({
     required String startPath,
     required String idlePath,
@@ -23,52 +28,52 @@ class AudioManager {
     required String gear3Path,
     required String shutdownPath,
   }) async {
-    // looping layers
-    await _idle.setFilePath(idlePath);
-    await _gear1.setFilePath(gear1Path);
-    await _gear2.setFilePath(gear2Path);
-    await _gear3.setFilePath(gear3Path);
+    // One-shots
+    _startClip = AudioPlayer();
+    await _startClip!.setAsset(startPath);
 
-    await _idle.setLoopMode(LoopMode.one);
-    await _gear1.setLoopMode(LoopMode.one);
-    await _gear2.setLoopMode(LoopMode.one);
-    await _gear3.setLoopMode(LoopMode.one);
+    _shutdownClip = AudioPlayer();
+    await _shutdownClip!.setAsset(shutdownPath);
 
-    await _idle.setVolume(0);
-    await _gear1.setVolume(0);
-    await _gear2.setVolume(0);
-    await _gear3.setVolume(0);
+    // Loops
+    await _idleLayer.setAsset(idlePath);
+    await _gear1Layer.setAsset(gear1Path);
+    await _gear2Layer.setAsset(gear2Path);
+    await _gear3Layer.setAsset(gear3Path);
 
-    // one-shots
-    _start = AudioPlayer()..setFilePath(startPath);
-    _shutdown = AudioPlayer()..setFilePath(shutdownPath);
+    await _idleLayer.setLoopMode(LoopMode.one);
+    await _gear1Layer.setLoopMode(LoopMode.one);
+    await _gear2Layer.setLoopMode(LoopMode.one);
+    await _gear3Layer.setLoopMode(LoopMode.one);
 
-    // start loops muted
-    await _idle.play();
-    await _gear1.play();
-    await _gear2.play();
-    await _gear3.play();
+    await _idleLayer.setVolume(0);
+    await _gear1Layer.setVolume(0);
+    await _gear2Layer.setVolume(0);
+    await _gear3Layer.setVolume(0);
+
+    // Pre-start the loops quietly
+    await _idleLayer.play();
+    await _gear1Layer.play();
+    await _gear2Layer.play();
+    await _gear3Layer.play();
   }
 
   Future<void> playStart() async {
-    debugPrint("▶️ playStart triggered");
-    if (_start != null) {
-      await _start!.seek(Duration.zero);
-      await _start!.play();
+    if (_startClip != null) {
+      await _startClip!.seek(Duration.zero);
+      await _startClip!.play();
     }
   }
 
   Future<void> playShutdown() async {
-    debugPrint("▶️ playShut triggered");
-    if (_shutdown != null) {
-      await _shutdown!.seek(Duration.zero);
-      await _shutdown!.play();
+    if (_shutdownClip != null) {
+      await _shutdownClip!.seek(Duration.zero);
+      await _shutdownClip!.play();
     }
     await stopAll();
   }
 
   Future<void> updateThrottle(int pct) async {
-
     final zone = (pct < 10)
         ? 0
         : (pct < 35)
@@ -80,21 +85,31 @@ class AudioManager {
     if (zone == _lastZone) return;
     _lastZone = zone;
 
-    // fade volumes between zones
+    // ✅ Ensure loops are running
+    if (!_idleLayer.playing) await _idleLayer.play();
+    if (!_gear1Layer.playing) await _gear1Layer.play();
+    if (!_gear2Layer.playing) await _gear2Layer.play();
+    if (!_gear3Layer.playing) await _gear3Layer.play();
+
+    // ✅ Crossfade volumes
     await Future.wait([
-      _fade(_idle, zone == 0 ? _engineVolume : 0),
-      _fade(_gear1, zone == 1 ? _engineVolume : 0),
-      _fade(_gear2, zone == 2 ? _engineVolume : 0),
-      _fade(_gear3, zone == 3 ? _engineVolume : 0),
+      _fade(_idleLayer, zone == 0 ? _engineVolume : 0),
+      _fade(_gear1Layer, zone == 1 ? _engineVolume : 0),
+      _fade(_gear2Layer, zone == 2 ? _engineVolume : 0),
+      _fade(_gear3Layer, zone == 3 ? _engineVolume : 0),
     ]);
   }
 
+
   Future<void> _fade(AudioPlayer p, double target) async {
     final from = p.volume;
-    const steps = 6;
-    final dt = Duration(milliseconds: (crossfadeMs / steps).round());
-    for (var i = 1; i <= steps; i++) {
-      final v = from + (target - from) * (i / steps);
+    if (_fadeSteps <= 1) {
+      await p.setVolume(target.clamp(0.0, 1.0));
+      return;
+    }
+    final dt = Duration(milliseconds: (crossfadeMs / _fadeSteps).round());
+    for (var i = 1; i <= _fadeSteps; i++) {
+      final v = from + (target - from) * (i / _fadeSteps);
       await p.setVolume(v.clamp(0.0, 1.0));
       await Future.delayed(dt);
     }
@@ -106,56 +121,181 @@ class AudioManager {
 
   Future<void> stopAll() async {
     try {
-      await _idle.stop();
-      await _gear1.stop();
-      await _gear2.stop();
-      await _gear3.stop();
+      await _idleLayer.stop();
+      await _gear1Layer.stop();
+      await _gear2Layer.stop();
+      await _gear3Layer.stop();
     } catch (_) {}
   }
 
   Future<void> dispose() async {
-    await _idle.dispose();
-    await _gear1.dispose();
-    await _gear2.dispose();
-    await _gear3.dispose();
-    await _start?.dispose();
-    await _shutdown?.dispose();
+    await _startClip?.dispose();
+    await _shutdownClip?.dispose();
+    await _idleLayer.dispose();
+    await _gear1Layer.dispose();
+    await _gear2Layer.dispose();
+    await _gear3Layer.dispose();
   }
-
- 
-  // Backward-compat shims so AppState still compiles
-  void setMix({required bool enabled, required double engineVol, required double musicVol}) {
-    _engineVolume = engineVol.clamp(0.0, 1.0);
-    // (musicVol ignored for now, since we dropped layered music logic)
-  }
-
-  Future<void> loadMusicAsset(String assetPath) async {
-    // optional: keep background music
-    try { await _musicPlayer.setAsset(assetPath); } catch (_) {}
-  }
-
-  Future<void> playCutoff() async {
-    await playShutdown();
-  }
-
-  Future<void> loadSingleMasterFile(String filePath) async {
-    // ✅ Compatibility shim: treat it as idle loop only
-    await loadFullPack(
-      startPath: "assets/sounds/default/start.wav",
-      idlePath: filePath,
-      gear1Path: "assets/sounds/default/first_gear.wav",
-      gear2Path: "assets/sounds/default/second_gear.wav",
-      gear3Path: "assets/sounds/default/third_gear.wav",
-      shutdownPath: "assets/sounds/default/shutdown.wav",
-    );
-  }
-
-
 }
 
-class _musicPlayer {
-  static Future<void> setAsset(String assetPath) async {}
-}
+// import 'package:flutter/cupertino.dart';
+// import 'package:just_audio/just_audio.dart';
+//
+// class AudioManager {
+//   final AudioPlayer _idle = AudioPlayer();
+//   final AudioPlayer _gear1 = AudioPlayer();
+//   final AudioPlayer _gear2 = AudioPlayer();
+//   final AudioPlayer _gear3 = AudioPlayer();
+//
+//   AudioPlayer? _start;
+//   AudioPlayer? _shutdown;
+//
+//   double _engineVolume = 1.0;
+//   int crossfadeMs = 300; // smooth transitions
+//   int _lastZone = -1;
+//
+//   // Load your pack of 6 files
+//   Future<void> loadFullPack({
+//     required String startPath,
+//     required String idlePath,
+//     required String gear1Path,
+//     required String gear2Path,
+//     required String gear3Path,
+//     required String shutdownPath,
+//   }) async {
+//     // looping layers
+//     await _idle.setAsset(idlePath);
+//     await _gear1.setAsset(gear1Path);
+//     await _gear2.setAsset(gear2Path);
+//     await _gear3.setAsset(gear3Path);
+//
+//     await _idle.setLoopMode(LoopMode.one);
+//     await _gear1.setLoopMode(LoopMode.one);
+//     await _gear2.setLoopMode(LoopMode.one);
+//     await _gear3.setLoopMode(LoopMode.one);
+//
+//     await _idle.setVolume(0);
+//     await _gear1.setVolume(0);
+//     await _gear2.setVolume(0);
+//     await _gear3.setVolume(0);
+//
+//     // one-shots
+//     _start = AudioPlayer()..setAsset(startPath);
+//     _shutdown = AudioPlayer()..setAsset(shutdownPath);
+//
+//     // start loops muted
+//     await _idle.play();
+//     await _gear1.play();
+//     await _gear2.play();
+//     await _gear3.play();
+//   }
+//
+//   Future<void> playStart() async {
+//     debugPrint("▶️ playStart triggered");
+//     if (_start != null) {
+//       await _start!.seek(Duration.zero);
+//       await _start!.play();
+//     }
+//   }
+//
+//   Future<void> playShutdown() async {
+//     debugPrint("▶️ playShut triggered");
+//     if (_shutdown != null) {
+//       await _shutdown!.seek(Duration.zero);
+//       await _shutdown!.play();
+//     }
+//     await stopAll();
+//   }
+//
+//   Future<void> updateThrottle(int pct) async {
+//
+//     final zone = (pct < 10)
+//         ? 0
+//         : (pct < 35)
+//         ? 1
+//         : (pct < 65)
+//         ? 2
+//         : 3;
+//
+//     if (zone == _lastZone) return;
+//     _lastZone = zone;
+//
+//     // fade volumes between zones
+//     await Future.wait([
+//       _fade(_idle, zone == 0 ? _engineVolume : 0),
+//       _fade(_gear1, zone == 1 ? _engineVolume : 0),
+//       _fade(_gear2, zone == 2 ? _engineVolume : 0),
+//       _fade(_gear3, zone == 3 ? _engineVolume : 0),
+//     ]);
+//   }
+//
+//   Future<void> _fade(AudioPlayer p, double target) async {
+//     final from = p.volume;
+//     const steps = 6;
+//     final dt = Duration(milliseconds: (crossfadeMs / steps).round());
+//     for (var i = 1; i <= steps; i++) {
+//       final v = from + (target - from) * (i / steps);
+//       await p.setVolume(v.clamp(0.0, 1.0));
+//       await Future.delayed(dt);
+//     }
+//   }
+//
+//   void setEngineVolume(double v) {
+//     _engineVolume = v.clamp(0.0, 1.0);
+//   }
+//
+//   Future<void> stopAll() async {
+//     try {
+//       await _idle.stop();
+//       await _gear1.stop();
+//       await _gear2.stop();
+//       await _gear3.stop();
+//     } catch (_) {}
+//   }
+//
+//   Future<void> dispose() async {
+//     await _idle.dispose();
+//     await _gear1.dispose();
+//     await _gear2.dispose();
+//     await _gear3.dispose();
+//     await _start?.dispose();
+//     await _shutdown?.dispose();
+//   }
+//
+//
+//   // Backward-compat shims so AppState still compiles
+//   void setMix({required bool enabled, required double engineVol, required double musicVol}) {
+//     _engineVolume = engineVol.clamp(0.0, 1.0);
+//     // (musicVol ignored for now, since we dropped layered music logic)
+//   }
+//
+//   Future<void> loadMusicAsset(String assetPath) async {
+//     // optional: keep background music
+//     try { await _musicPlayer.setAsset(assetPath); } catch (_) {}
+//   }
+//
+//   Future<void> playCutoff() async {
+//     await playShutdown();
+//   }
+//
+//   Future<void> loadSingleMasterFile(String filePath) async {
+//     // ✅ Compatibility shim: treat it as idle loop only
+//     await loadFullPack(
+//       startPath: "assets/sounds/default/start.wav",
+//       idlePath: "assets/sounds/default/idle1.wav",
+//       gear1Path: "assets/sounds/default/first_gear.wav",
+//       gear2Path: "assets/sounds/default/second_gear.wav",
+//       gear3Path: "assets/sounds/default/third_gear.wav",
+//       shutdownPath: "assets/sounds/default/shutdown.wav",
+//     );
+//   }
+//
+//
+// }
+//
+// class _musicPlayer {
+//   static Future<void> setAsset(String assetPath) async {}
+// }
 
 // // lib/services/audio_manager.dart
 // import 'package:flutter/cupertino.dart';
