@@ -165,6 +165,7 @@ class AppState extends ChangeNotifier {
         gear1Path: "assets/sounds/default/first_gear.wav",
         gear2Path: "assets/sounds/default/second_gear.wav",
         gear3Path: "assets/sounds/default/third_gear.wav",
+        gear4Path: "assets/sounds/default/fourth_gear.wav",
         shutdownPath: "assets/sounds/default/shutdown.wav",
       );
       audio.setEngineVolume(engineVolume);
@@ -206,6 +207,7 @@ class AppState extends ChangeNotifier {
       gear1Path: "assets/sounds/default/first_gear.wav",
       gear2Path: "assets/sounds/default/second_gear.wav",
       gear3Path: "assets/sounds/default/third_gear.wav",
+      gear4Path: "assets/sounds/default/fourth_gear.wav",
       shutdownPath: "assets/sounds/default/shutdown.wav",
     );
     audio.setEngineVolume(engineVolume);
@@ -243,6 +245,7 @@ class AppState extends ChangeNotifier {
       gear1Path: "assets/sounds/default/first_gear.wav",
       gear2Path: "assets/sounds/default/second_gear.wav",
       gear3Path: "assets/sounds/default/third_gear.wav",
+      gear4Path: "assets/sounds/default/fourth_gear.wav",
       shutdownPath: "assets/sounds/default/shutdown.wav",
     );
     audio.setEngineVolume(engineVolume);
@@ -293,6 +296,7 @@ class AppState extends ChangeNotifier {
         gear1Path: "assets/sounds/default/first_gear.wav",
         gear2Path: "assets/sounds/default/second_gear.wav",
         gear3Path: "assets/sounds/default/third_gear.wav",
+        gear4Path: "assets/sounds/default/fourth_gear.wav",
         shutdownPath: "assets/sounds/default/shutdown.wav",
       );
       audio.setEngineVolume(engineVolume);

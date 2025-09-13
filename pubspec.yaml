@@ -95,6 +95,7 @@ flutter:
     - assets/sounds/default/first_gear.wav
     - assets/sounds/default/second_gear.wav
     - assets/sounds/default/third_gear.wav
+    - assets/sounds/default/fourth_gear.wav
     - assets/sounds/default/shutdown.wav
 
 
